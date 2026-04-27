@@ -12,6 +12,7 @@ model Tenant {
   id            String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   name          String
   subscription  TenantSubscription?
+  events        Event[]
   guests        GuestProfile[]
   createdAt     DateTime           @default(now())
 }
@@ -29,17 +30,113 @@ model TenantSubscription {
 model GuestProfile {
   id                 String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   tenantId           String   @db.Uuid
+  eventId            String?  @db.Uuid
+  name               String?
   phoneFingerprint   String   @db.VarChar(30)
   contactSource      String   @default("MANUAL") // "WHATSAPP", "EXCEL", "MANUAL"
   rsvpStatus         String   @default("PENDING_SEND") // "PENDING_SEND", "DELIVERED", "READ", "CONFIRMED", "DECLINED"
+  partySize          Int      @default(1)
+  specialNeeds       String?  @db.Text
+  lastInboundAt      DateTime?
+  lastOutboundAt     DateTime?
   dietaryRestrictions String? @db.Text
   vipReliabilityScore Int     @default(0)
   createdAt          DateTime @default(now())
   
   tenant             Tenant   @relation(fields: [tenantId], references: [id])
+  event              Event?   @relation(fields: [eventId], references: [id])
   reservationHistory ReservationLog[]
+  invitations        Invitation[]
+  messages           MessageLog[]
 
   @@unique([tenantId, phoneFingerprint])
+  @@index([eventId, rsvpStatus])
+}
+
+model Event {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId    String   @db.Uuid
+  name        String
+  hosts       String?
+  eventDate   DateTime?
+  venueName   String?
+  venueAddress String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  tenant      Tenant   @relation(fields: [tenantId], references: [id])
+  guests      GuestProfile[]
+  facts       EventFact[]
+  faqs        EventFAQ[]
+  invitations Invitation[]
+
+  @@index([tenantId, eventDate])
+}
+
+model EventFact {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  eventId   String   @db.Uuid
+  category  String   @db.VarChar(40)
+  key       String   @db.VarChar(80)
+  value     String   @db.Text
+  visibility String  @default("GUEST") @db.VarChar(20)
+  updatedAt DateTime @updatedAt
+
+  event     Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@unique([eventId, key])
+  @@index([eventId, category])
+}
+
+model EventFAQ {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  eventId   String   @db.Uuid
+  question  String   @db.Text
+  answer    String   @db.Text
+  category  String   @db.VarChar(40)
+  active    Boolean  @default(true)
+  updatedAt DateTime @updatedAt
+
+  event     Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@index([eventId, category, active])
+}
+
+model Invitation {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  eventId        String   @db.Uuid
+  guestId        String   @db.Uuid
+  templateName   String
+  status         String   @default("QUEUED") @db.VarChar(30)
+  providerMessageId String?
+  sentAt         DateTime?
+  createdAt      DateTime @default(now())
+
+  event          Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  guest          GuestProfile @relation(fields: [guestId], references: [id], onDelete: Cascade)
+
+  @@index([eventId, status])
+  @@index([guestId])
+}
+
+model MessageLog {
+  id                String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId          String   @db.Uuid
+  eventId           String?  @db.Uuid
+  guestId           String?  @db.Uuid
+  wamid             String?  @unique
+  direction         String   @db.VarChar(12)
+  channel           String   @default("WHATSAPP") @db.VarChar(20)
+  body              String   @db.Text
+  intent            String?  @db.VarChar(40)
+  providerMessageId String?
+  createdAt         DateTime @default(now())
+
+  guest             GuestProfile? @relation(fields: [guestId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, createdAt])
+  @@index([eventId, createdAt])
+  @@index([guestId, createdAt])
 }
 
 model ReservationLog {

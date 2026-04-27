@@ -6,7 +6,7 @@ import { IBackgroundJobClient, JobPayload } from "../../domain/ports/IBackground
  * Anillo 4: Infrastructure.
  */
 
-export const inngest = new Inngest({ id: "reservAItion-app" });
+export const inngest = new Inngest({ id: "confima-app" });
 
 export class InngestJobClient implements IBackgroundJobClient {
   public async enqueueDelayed(
