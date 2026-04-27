@@ -1,40 +1,110 @@
-import React from 'react';
-import { ShieldAlert, FileText, CheckCircle, AlertTriangle } from 'lucide-react';
+import React from "react";
+import { AlertTriangle, CheckCircle2, FileText, MessageSquareText, ShieldCheck, StopCircle } from "lucide-react";
+import { InvitationTemplateDefinition } from "@/application/services/WhatsAppComplianceService";
+
+const controls = [
+  {
+    title: "Plantilla aprobada",
+    status: "Requerida",
+    detail: "Todo primer contacto de negocio se envia como template de Meta, no como texto libre.",
+    icon: FileText,
+  },
+  {
+    title: "Consentimiento WhatsApp",
+    status: "Activo",
+    detail: "Cada invitado guarda fuente, fecha y texto de opt-in antes de entrar a envios masivos.",
+    icon: ShieldCheck,
+  },
+  {
+    title: "Opt-out inmediato",
+    status: "Activo",
+    detail: "STOP, baja, cancelar o salir pausan la mensajeria del invitado y dejan auditoria.",
+    icon: StopCircle,
+  },
+  {
+    title: "Ventana 24h",
+    status: "Activo",
+    detail: "Las respuestas libres se limitan a conversaciones iniciadas por el invitado.",
+    icon: MessageSquareText,
+  },
+];
 
 export default function CompliancePage() {
   return (
     <div className="space-y-8 fade-in">
       <header className="space-y-2">
-        <h2 className="text-3xl font-bold tracking-tight text-slate-900 flex items-center gap-3">
-          <ShieldAlert className="w-8 h-8 text-rose-500" /> Auditoría Legal & Compliance
+        <h2 className="text-3xl font-semibold tracking-tight text-stone-950">
+          Compliance WhatsApp
         </h2>
-        <p className="text-slate-500 text-lg">Revisión autónoma de contratos, pólizas y cláusulas de riesgo.</p>
+        <p className="max-w-3xl text-sm leading-6 text-stone-600">
+          Controles para reducir riesgo de bloqueo del numero: consentimiento explicito,
+          plantillas aprobadas, salida voluntaria y uso estricto de la ventana de atencion.
+        </p>
       </header>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="bg-white p-6 rounded-2xl border shadow-sm space-y-4">
-          <div className="w-12 h-12 bg-rose-100 text-rose-600 rounded-xl flex items-center justify-center"><AlertTriangle /></div>
-          <h3 className="text-lg font-bold">Riesgos Críticos (0)</h3>
-          <p className="text-slate-500 text-sm">No hay cláusulas abusivas detectadas en los últimos 5 contratos analizados.</p>
-        </div>
-        <div className="bg-white p-6 rounded-2xl border shadow-sm space-y-4">
-          <div className="w-12 h-12 bg-amber-100 text-amber-600 rounded-xl flex items-center justify-center"><FileText /></div>
-          <h3 className="text-lg font-bold">Contratos Pendientes (2)</h3>
-          <p className="text-slate-500 text-sm">Contrato de locación y banda musical esperando tu firma final.</p>
-        </div>
-        <div className="bg-white p-6 rounded-2xl border shadow-sm space-y-4">
-          <div className="w-12 h-12 bg-emerald-100 text-emerald-600 rounded-xl flex items-center justify-center"><CheckCircle /></div>
-          <h3 className="text-lg font-bold">Score de Seguridad</h3>
-          <div className="text-3xl font-black text-emerald-600">99.9%</div>
-        </div>
-      </div>
+      <section className="grid grid-cols-1 gap-4 md:grid-cols-4">
+        {controls.map((item) => {
+          const Icon = item.icon;
+          return (
+            <article key={item.title} className="rounded-lg border border-stone-200 bg-white p-5 shadow-sm">
+              <div className="mb-4 flex items-center justify-between">
+                <Icon className="h-5 w-5 text-stone-700" />
+                <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700">
+                  {item.status}
+                </span>
+              </div>
+              <h3 className="text-sm font-semibold text-stone-950">{item.title}</h3>
+              <p className="mt-2 text-xs leading-5 text-stone-600">{item.detail}</p>
+            </article>
+          );
+        })}
+      </section>
 
-      <div className="bg-white rounded-2xl border shadow-sm p-8">
-        <h3 className="text-xl font-bold mb-6">Registro de Auditorías IA</h3>
-        <div className="h-64 bg-slate-50 rounded-xl border-2 border-dashed border-slate-200 flex items-center justify-center text-slate-400">
-          Actualmente sin contratos nuevos escaneados.
-        </div>
-      </div>
+      <section className="grid grid-cols-1 gap-6 xl:grid-cols-[1.2fr_0.8fr]">
+        <article className="rounded-lg border border-stone-200 bg-white p-6 shadow-sm">
+          <div className="mb-5 flex items-center gap-3">
+            <CheckCircle2 className="h-5 w-5 text-emerald-600" />
+            <h3 className="text-lg font-semibold text-stone-950">Machote para Meta</h3>
+          </div>
+
+          <dl className="grid gap-4 text-sm md:grid-cols-2">
+            <div>
+              <dt className="text-xs uppercase tracking-wide text-stone-500">Nombre sugerido</dt>
+              <dd className="mt-1 font-mono text-stone-900">{InvitationTemplateDefinition.name}</dd>
+            </div>
+            <div>
+              <dt className="text-xs uppercase tracking-wide text-stone-500">Categoria</dt>
+              <dd className="mt-1 text-stone-900">{InvitationTemplateDefinition.category}</dd>
+            </div>
+            <div>
+              <dt className="text-xs uppercase tracking-wide text-stone-500">Idioma</dt>
+              <dd className="mt-1 text-stone-900">{InvitationTemplateDefinition.language}</dd>
+            </div>
+            <div>
+              <dt className="text-xs uppercase tracking-wide text-stone-500">Variables</dt>
+              <dd className="mt-1 text-stone-900">{InvitationTemplateDefinition.requiredVariables.join(", ")}</dd>
+            </div>
+          </dl>
+
+          <div className="mt-6 rounded-md border border-stone-200 bg-stone-50 p-4">
+            <p className="text-sm leading-6 text-stone-800">{InvitationTemplateDefinition.sampleBody}</p>
+          </div>
+        </article>
+
+        <article className="rounded-lg border border-amber-200 bg-amber-50 p-6">
+          <div className="mb-4 flex items-center gap-3">
+            <AlertTriangle className="h-5 w-5 text-amber-700" />
+            <h3 className="text-lg font-semibold text-stone-950">Riesgos a vigilar</h3>
+          </div>
+          <ul className="space-y-3 text-sm leading-6 text-stone-700">
+            <li>Importar telefonos sin evidencia de opt-in para WhatsApp.</li>
+            <li>Enviar promociones o lenguaje comercial en una plantilla de utilidad.</li>
+            <li>Mandar muchos mensajes seguidos a invitados que no responden.</li>
+            <li>No respetar solicitudes como STOP, cancelar, baja o salir.</li>
+            <li>Responder con IA datos no confirmados por facts o FAQs del evento.</li>
+          </ul>
+        </article>
+      </section>
     </div>
   );
 }

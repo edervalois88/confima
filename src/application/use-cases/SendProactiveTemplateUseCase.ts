@@ -1,5 +1,6 @@
 import { IMessagingProvider } from "../../domain/ports/IMessagingProvider";
 import { PrismaClient } from "@prisma/client";
+import { WhatsAppComplianceService } from "@/application/services/WhatsAppComplianceService";
 
 /**
  * @fileoverview Caso de Uso para el envío proactivo de plantillas (RSVP, Mapas, etc.).
@@ -14,7 +15,8 @@ export class SendProactiveTemplateUseCase {
   public async execute(guestId: string, templateName: string, variables: string[]) {
     // 1. Recuperar perfil del invitado
     const guest = await prisma.guestProfile.findUnique({
-      where: { id: guestId }
+      where: { id: guestId },
+      include: { event: true },
     });
 
     if (!guest) {
@@ -22,6 +24,22 @@ export class SendProactiveTemplateUseCase {
     }
 
     console.log(`[PROACTIVE] Enviando plantilla '\${templateName}' a \${guest.phoneFingerprint}`);
+
+    const complianceDecision = WhatsAppComplianceService.assessTemplateSend(guest);
+
+    if (!complianceDecision.allowed) {
+      await prisma.reservationLog.create({
+        data: {
+          guestId: guest.id,
+          temporalStartISO: new Date(),
+          partySizeCapacity: 0,
+          statusState: "TEMPLATE_BLOCKED",
+          riskFactorAexp: 1.0,
+        },
+      });
+
+      return { messageId: "", blocked: true, reason: complianceDecision.reason };
+    }
 
     // 2. Despachar plantilla
     const messageId = await this.messagingProvider.sendTemplateMessage(guest.phoneFingerprint, {
@@ -33,6 +51,22 @@ export class SendProactiveTemplateUseCase {
           parameters: variables.map(v => ({ type: "text", text: v }))
         }
       ]
+    });
+
+    await prisma.messageLog.create({
+      data: {
+        tenantId: guest.tenantId,
+        eventId: guest.eventId,
+        guestId: guest.id,
+        direction: "OUTBOUND",
+        body: `Template ${templateName}`,
+        intent: "PROACTIVE_TEMPLATE",
+        messageType: "TEMPLATE",
+        templateName,
+        complianceStatus: complianceDecision.status,
+        complianceReason: complianceDecision.reason,
+        providerMessageId: messageId,
+      },
     });
 
     // 3. Auditoría en ReservationLog

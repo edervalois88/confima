@@ -39,6 +39,14 @@ model GuestProfile {
   specialNeeds       String?  @db.Text
   lastInboundAt      DateTime?
   lastOutboundAt     DateTime?
+  serviceWindowOpenedAt DateTime?
+  serviceWindowExpiresAt DateTime?
+  whatsappOptInStatus String @default("UNKNOWN") @db.VarChar(20) // "UNKNOWN", "OBTAINED", "INBOUND_INITIATED", "OPTED_OUT"
+  whatsappOptInSource String? @db.VarChar(60)
+  whatsappOptInAt    DateTime?
+  whatsappOptInText  String?  @db.Text
+  whatsappOptOutAt   DateTime?
+  messagingPaused    Boolean  @default(false)
   dietaryRestrictions String? @db.Text
   vipReliabilityScore Int     @default(0)
   createdAt          DateTime @default(now())
@@ -110,6 +118,9 @@ model Invitation {
   status         String   @default("QUEUED") @db.VarChar(30)
   providerMessageId String?
   sentAt         DateTime?
+  templateCategory String @default("UTILITY") @db.VarChar(30)
+  complianceStatus String @default("PENDING") @db.VarChar(30)
+  complianceReason String? @db.Text
   createdAt      DateTime @default(now())
 
   event          Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
@@ -129,6 +140,10 @@ model MessageLog {
   channel           String   @default("WHATSAPP") @db.VarChar(20)
   body              String   @db.Text
   intent            String?  @db.VarChar(40)
+  messageType       String   @default("FREE_FORM") @db.VarChar(30)
+  templateName      String?
+  complianceStatus  String   @default("ALLOWED") @db.VarChar(30)
+  complianceReason  String?
   providerMessageId String?
   createdAt         DateTime @default(now())
 

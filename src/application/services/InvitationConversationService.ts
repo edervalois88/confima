@@ -1,6 +1,7 @@
 import { PrismaClient } from "@prisma/client";
 import { z } from "zod";
 import { ConversationMessage, ILLMService } from "@/application/ports/ILLMService";
+import { WhatsAppComplianceService } from "@/application/services/WhatsAppComplianceService";
 
 const IncomingConversationSchema = z.object({
   tenantId: z.string(),
@@ -18,7 +19,7 @@ export interface ConversationResult {
   guestId?: string;
 }
 
-type GuestIntent = "CONFIRM" | "DECLINE" | "SPECIAL_NEED" | "QUESTION" | "UNKNOWN";
+type GuestIntent = "CONFIRM" | "DECLINE" | "SPECIAL_NEED" | "QUESTION" | "UNKNOWN" | "OPT_OUT";
 
 interface StrictContext {
   facts: Array<{ key: string; value: string; category: string }>;
@@ -34,10 +35,70 @@ export class InvitationConversationService {
   public async handle(input: IncomingConversation): Promise<ConversationResult> {
     const parsed = IncomingConversationSchema.parse(input);
     const tenant = await this.ensureTenant(parsed.tenantId);
+    const serviceWindowExpiresAt = WhatsAppComplianceService.getServiceWindowExpiration();
     const guest = await this.ensureGuest({
       tenantId: tenant.id,
       phone: parsed.phone,
       guestName: parsed.guestName,
+    });
+
+    if (WhatsAppComplianceService.isOptOutText(parsed.text)) {
+      await this.prisma.guestProfile.update({
+        where: { id: guest.id },
+        data: {
+          messagingPaused: true,
+          whatsappOptInStatus: "OPTED_OUT",
+          whatsappOptOutAt: new Date(),
+          serviceWindowOpenedAt: new Date(),
+          serviceWindowExpiresAt,
+          lastInboundAt: new Date(),
+        },
+      });
+
+      const reply = "Listo, pausamos los mensajes de esta invitacion. Si quieres reactivar la conversacion, contacta directamente a los anfitriones.";
+
+      await this.prisma.messageLog.create({
+        data: {
+          tenantId: tenant.id,
+          eventId: guest.eventId,
+          guestId: guest.id,
+          wamid: parsed.wamid,
+          direction: "INBOUND",
+          body: parsed.text,
+          intent: "OPT_OUT",
+          messageType: "FREE_FORM",
+          complianceStatus: "ALLOWED",
+          complianceReason: "Solicitud de opt-out recibida por WhatsApp.",
+        },
+      }).catch(() => undefined);
+
+      await this.prisma.messageLog.create({
+        data: {
+          tenantId: tenant.id,
+          eventId: guest.eventId,
+          guestId: guest.id,
+          direction: "OUTBOUND",
+          body: reply,
+          intent: "OPT_OUT",
+          messageType: "FREE_FORM",
+          complianceStatus: "ALLOWED",
+          complianceReason: "Confirmacion transaccional de opt-out dentro de la conversacion.",
+        },
+      });
+
+      return { reply, intent: "OPT_OUT", guestId: guest.id };
+    }
+
+    const activeGuest = await this.prisma.guestProfile.update({
+      where: { id: guest.id },
+      data: {
+        serviceWindowOpenedAt: new Date(),
+        serviceWindowExpiresAt,
+        lastInboundAt: new Date(),
+        whatsappOptInStatus: guest.whatsappOptInStatus === "UNKNOWN" ? "INBOUND_INITIATED" : guest.whatsappOptInStatus,
+        whatsappOptInSource: guest.whatsappOptInStatus === "UNKNOWN" ? "WHATSAPP_INBOUND" : guest.whatsappOptInSource,
+        whatsappOptInAt: guest.whatsappOptInAt || new Date(),
+      },
     });
 
     const intent = classifyDeterministicIntent(parsed.text);
@@ -45,35 +106,51 @@ export class InvitationConversationService {
     await this.prisma.messageLog.create({
       data: {
         tenantId: tenant.id,
-        eventId: guest.eventId,
-        guestId: guest.id,
+        eventId: activeGuest.eventId,
+        guestId: activeGuest.id,
         wamid: parsed.wamid,
         direction: "INBOUND",
         body: parsed.text,
         intent,
+        messageType: "FREE_FORM",
+        complianceStatus: "ALLOWED",
+        complianceReason: "Mensaje iniciado por invitado; abre ventana de atencion.",
       },
     }).catch(() => undefined);
 
     const result = await this.resolveIntent({
       tenantId: tenant.id,
-      eventId: guest.eventId,
-      guestId: guest.id,
+      eventId: activeGuest.eventId,
+      guestId: activeGuest.id,
       text: parsed.text,
       intent,
     });
 
+    const replyDecision = WhatsAppComplianceService.assessFreeFormReply(activeGuest);
+
     await this.prisma.messageLog.create({
       data: {
         tenantId: tenant.id,
-        eventId: guest.eventId,
-        guestId: guest.id,
+        eventId: activeGuest.eventId,
+        guestId: activeGuest.id,
         direction: "OUTBOUND",
         body: result.reply,
         intent: result.intent,
+        messageType: "FREE_FORM",
+        complianceStatus: replyDecision.status,
+        complianceReason: replyDecision.reason,
       },
     });
 
-    return { ...result, guestId: guest.id };
+    if (!replyDecision.allowed) {
+      return {
+        intent: "UNKNOWN",
+        reply: "Recibimos tu mensaje. Para continuar por WhatsApp necesitamos reabrir la conversacion con una plantilla autorizada.",
+        guestId: activeGuest.id,
+      };
+    }
+
+    return { ...result, guestId: activeGuest.id };
   }
 
   private async resolveIntent(input: {
