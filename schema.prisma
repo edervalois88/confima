@@ -1,0 +1,66 @@
+// schema.prisma
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model Tenant {
+  id            String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name          String
+  subscription  TenantSubscription?
+  guests        GuestProfile[]
+  createdAt     DateTime           @default(now())
+}
+
+model TenantSubscription {
+  id                 String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId           String   @unique @db.Uuid
+  canUploadExcel     Boolean  @default(false)
+  hasWeatherConcierge Boolean @default(false)
+  hasMapLogistics    Boolean  @default(false)
+  
+  tenant             Tenant   @relation(fields: [tenantId], references: [id])
+}
+
+model GuestProfile {
+  id                 String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId           String   @db.Uuid
+  phoneFingerprint   String   @db.VarChar(30)
+  contactSource      String   @default("MANUAL") // "WHATSAPP", "EXCEL", "MANUAL"
+  rsvpStatus         String   @default("PENDING_SEND") // "PENDING_SEND", "DELIVERED", "READ", "CONFIRMED", "DECLINED"
+  dietaryRestrictions String? @db.Text
+  vipReliabilityScore Int     @default(0)
+  createdAt          DateTime @default(now())
+  
+  tenant             Tenant   @relation(fields: [tenantId], references: [id])
+  reservationHistory ReservationLog[]
+
+  @@unique([tenantId, phoneFingerprint])
+}
+
+model ReservationLog {
+  id                 String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  guestId            String          @db.Uuid
+  temporalStartISO   DateTime
+  partySizeCapacity  Int
+  statusState        String          @db.VarChar(30)
+  riskFactorAexp     Float           @default(0.0)
+  
+  guest              GuestProfile    @relation(fields: [guestId], references: [id], onDelete: Cascade)
+  telemetryStream    TelemetryNode[]
+
+  @@index([temporalStartISO, statusState])
+}
+
+model TelemetryNode {
+  id                 String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  reservationRefId   String   @db.Uuid
+  audioLatencyTtfbMs Int      @default(0)
+  timestampProcessed DateTime @default(now())
+
+  reservationLog     ReservationLog @relation(fields: [reservationRefId], references: [id], onDelete: Cascade)
+}
