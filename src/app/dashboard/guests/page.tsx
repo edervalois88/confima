@@ -3,6 +3,10 @@ import { Users, Filter, Download } from 'lucide-react';
 import { GuestTable } from '@/presentation/components/GuestTable';
 import { Skeleton } from '@/presentation/components/Skeleton';
 import { Suspense } from 'react';
+import { PrismaClient } from '@prisma/client';
+import { GuestDirectoryService } from '@/application/services/GuestDirectoryService';
+
+const prisma = new PrismaClient();
 
 export default function GuestsPage() {
   return (
@@ -26,9 +30,16 @@ export default function GuestsPage() {
 
       <div className="bg-white rounded-2xl border shadow-sm p-2">
         <Suspense fallback={<Skeleton className="h-[600px] rounded-xl" />}>
-          <GuestTable />
+          <GuestsTableFromDatabase />
         </Suspense>
       </div>
     </div>
   );
+}
+
+async function GuestsTableFromDatabase() {
+  const directory = new GuestDirectoryService(prisma);
+  const guests = await directory.listGuests();
+
+  return <GuestTable guests={guests} />;
 }

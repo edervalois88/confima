@@ -16,9 +16,13 @@ export async function updateGuestRSVPAction(guestId: string, status: string) {
   // En un entorno Multi-Tenant real, aquí se inyectaría el tenantId
   await prisma.guestProfile.update({
     where: { id: guestId },
-    data: { rsvpStatus: status }
+    data: {
+      rsvpStatus: status,
+      lastInboundAt: status === 'CONFIRMED' || status === 'DECLINED' ? new Date() : undefined,
+    }
   });
 
+  revalidatePath('/dashboard/guests');
   revalidatePath('/dashboard');
   return { success: true };
 }

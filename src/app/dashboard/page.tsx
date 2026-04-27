@@ -3,8 +3,12 @@ import { AlertCircle, CheckCircle2, MessageSquareText, UploadCloud, Users } from
 import { GuestTable } from "@/presentation/components/GuestTable";
 import { Skeleton } from "@/presentation/components/Skeleton";
 import { StreamingPlanner } from "@/presentation/components/StreamingPlanner";
+import { PrismaClient } from "@prisma/client";
+import { GuestDirectoryService, RsvpSummary } from "@/application/services/GuestDirectoryService";
 
-export default async function DashboardPage() {
+const prisma = new PrismaClient();
+
+export default function DashboardPage() {
   return (
     <div className="space-y-8 pb-16">
       <header className="flex flex-col gap-4 border-b border-[#d7d2c8] pb-8 lg:flex-row lg:items-end lg:justify-between">
@@ -23,7 +27,7 @@ export default async function DashboardPage() {
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
         <Suspense fallback={<Skeleton className="h-32 rounded-md" />}>
-          <RSVPSummaryCards />
+          <RSVPSummaryCardsFromDatabase />
         </Suspense>
       </div>
 
@@ -37,7 +41,7 @@ export default async function DashboardPage() {
           </div>
           <div className="rounded-lg border border-[#d7d2c8] bg-white p-4 shadow-sm">
             <Suspense fallback={<Skeleton className="h-[400px] rounded-md" />}>
-              <GuestTable />
+              <GuestTableFromDatabase />
             </Suspense>
           </div>
         </section>
@@ -56,29 +60,41 @@ export default async function DashboardPage() {
   );
 }
 
-async function RSVPSummaryCards() {
-  await new Promise(resolve => setTimeout(resolve, 800));
+async function GuestTableFromDatabase() {
+  const directory = new GuestDirectoryService(prisma);
+  const guests = await directory.listGuests(12);
 
+  return <GuestTable guests={guests} />;
+}
+
+async function RSVPSummaryCardsFromDatabase() {
+  const directory = new GuestDirectoryService(prisma);
+  const summary = await directory.getSummary();
+
+  return <RSVPSummaryCards summary={summary} />;
+}
+
+function RSVPSummaryCards({ summary }: { summary: RsvpSummary }) {
   return (
     <>
       <SummaryCard
         icon={<CheckCircle2 className="h-5 w-5" />}
         label="Confirmados"
-        value="142"
-        detail="+12 desde ayer"
+        value={String(summary.confirmed)}
+        detail="Registrados en BD"
         tone="green"
       />
       <SummaryCard
         icon={<Users className="h-5 w-5" />}
         label="Pendientes"
-        value="58"
+        value={String(summary.pending)}
         detail="Recordatorio listo"
         tone="gold"
       />
       <SummaryCard
         icon={<AlertCircle className="h-5 w-5" />}
         label="Necesidades especiales"
-        value="12"
+        value={String(summary.specialNeeds)}
         detail="Menu o accesibilidad"
         tone="red"
       />
