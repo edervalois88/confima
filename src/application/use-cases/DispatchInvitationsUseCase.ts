@@ -12,10 +12,36 @@ import {
 
 const prisma = new PrismaClient();
 
+export interface DispatchInvitationsOptions {
+  dryRun?: boolean;
+  limit?: number;
+}
+
+export interface DispatchInvitationsResult {
+  dryRun: boolean;
+  totalCandidates: number;
+  sent: number;
+  blocked: number;
+  failed: number;
+  skipped: number;
+  templateName: string;
+  details: Array<{
+    guestId: string;
+    guestName: string;
+    phone: string;
+    status: "WOULD_SEND" | "SENT" | "BLOCKED" | "FAILED" | "SKIPPED";
+    reason: string;
+  }>;
+}
+
 export class DispatchInvitationsUseCase {
   constructor(private readonly messagingProvider: IMessagingProvider) {}
 
-  public async execute(tenantId: string, templateName = InvitationTemplateDefinition.name) {
+  public async execute(
+    tenantId: string,
+    templateName = InvitationTemplateDefinition.name,
+    options: DispatchInvitationsOptions = {}
+  ): Promise<DispatchInvitationsResult> {
     // 1. Obtener invitados pendientes de envío
     const guests = await prisma.guestProfile.findMany({
       where: { 
@@ -23,32 +49,78 @@ export class DispatchInvitationsUseCase {
         rsvpStatus: 'PENDING_SEND' 
       },
       include: { event: true },
+      orderBy: { createdAt: "asc" },
+      take: options.limit || 50,
     });
 
     console.log(`[DISPATCH] Iniciando envío de ${guests.length} invitaciones para Tenant ${tenantId}`);
 
+    const result: DispatchInvitationsResult = {
+      dryRun: options.dryRun === true,
+      totalCandidates: guests.length,
+      sent: 0,
+      blocked: 0,
+      failed: 0,
+      skipped: 0,
+      templateName,
+      details: [],
+    };
+
     for (const guest of guests) {
       try {
         const complianceDecision = WhatsAppComplianceService.assessTemplateSend(guest);
+        const guestLabel = guest.name || "Invitado sin nombre";
 
         if (!guest.event) {
-          await this.auditBlockedInvitation({
+          result.blocked += 1;
+          result.details.push({
             guestId: guest.id,
-            eventId: null,
-            templateName,
+            guestName: guestLabel,
+            phone: guest.phoneFingerprint,
             status: "BLOCKED",
             reason: "El invitado no tiene evento asociado.",
           });
+          if (!options.dryRun) {
+            await this.auditBlockedInvitation({
+              guestId: guest.id,
+              eventId: null,
+              templateName,
+              status: "BLOCKED",
+              reason: "El invitado no tiene evento asociado.",
+            });
+          }
           continue;
         }
 
         if (!complianceDecision.allowed) {
-          await this.auditBlockedInvitation({
+          result.blocked += 1;
+          result.details.push({
             guestId: guest.id,
-            eventId: guest.event.id,
-            templateName,
-            status: complianceDecision.status,
+            guestName: guestLabel,
+            phone: guest.phoneFingerprint,
+            status: "BLOCKED",
             reason: complianceDecision.reason,
+          });
+          if (!options.dryRun) {
+            await this.auditBlockedInvitation({
+              guestId: guest.id,
+              eventId: guest.event.id,
+              templateName,
+              status: complianceDecision.status,
+              reason: complianceDecision.reason,
+            });
+          }
+          continue;
+        }
+
+        if (options.dryRun) {
+          result.skipped += 1;
+          result.details.push({
+            guestId: guest.id,
+            guestName: guestLabel,
+            phone: guest.phoneFingerprint,
+            status: "WOULD_SEND",
+            reason: "Cumple opt-in y usaria plantilla aprobada.",
           });
           continue;
         }
@@ -94,13 +166,44 @@ export class DispatchInvitationsUseCase {
             providerMessageId,
           },
         });
+        result.sent += 1;
+        result.details.push({
+          guestId: guest.id,
+          guestName: guestLabel,
+          phone: guest.phoneFingerprint,
+          status: "SENT",
+          reason: providerMessageId || "Mensaje aceptado por el proveedor.",
+        });
 
       } catch (error) {
         console.error(`[DISPATCH_ERROR] Fallo al enviar a ${guest.phoneFingerprint}:`, error);
+        result.failed += 1;
+        const reason = error instanceof Error ? error.message.slice(0, 500) : "Error desconocido";
+        result.details.push({
+          guestId: guest.id,
+          guestName: guest.name || "Invitado sin nombre",
+          phone: guest.phoneFingerprint,
+          status: "FAILED",
+          reason,
+        });
+
+        if (guest.eventId && !options.dryRun) {
+          await prisma.invitation.create({
+            data: {
+              eventId: guest.eventId,
+              guestId: guest.id,
+              templateName,
+              templateCategory: InvitationTemplateDefinition.category,
+              status: "FAILED",
+              complianceStatus: "ALLOWED",
+              complianceReason: reason,
+            },
+          });
+        }
       }
     }
 
-    return { totalProcessed: guests.length };
+    return result;
   }
 
   private async auditBlockedInvitation(input: {

@@ -3,6 +3,7 @@ import { AlertCircle, CheckCircle2, MessageSquareText, UploadCloud, Users } from
 import { GuestTable } from "@/presentation/components/GuestTable";
 import { Skeleton } from "@/presentation/components/Skeleton";
 import { StreamingPlanner } from "@/presentation/components/StreamingPlanner";
+import { DispatchInvitationsPanel } from "@/presentation/components/DispatchInvitationsPanel";
 import { PrismaClient } from "@prisma/client";
 import { GuestDirectoryService, RsvpSummary } from "@/application/services/GuestDirectoryService";
 
@@ -30,6 +31,8 @@ export default function DashboardPage() {
           <RSVPSummaryCardsFromDatabase />
         </Suspense>
       </div>
+
+      <DispatchInvitationsPanel />
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
         <section className="xl:col-span-2">
