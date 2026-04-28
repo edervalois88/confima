@@ -1,8 +1,9 @@
 import { StateGraph, END, START } from "@langchain/langgraph";
-import { BaseMessage, HumanMessage } from "@langchain/core/messages";
-import { IBudgetOptimizationService, IVendorRepository } from "../../domain/ports/PlanningPorts";
+import { AIMessage, BaseMessage, HumanMessage } from "@langchain/core/messages";
+import { BudgetAllocation, IBudgetOptimizationService, IVendorRepository, LegalRisk, Vendor } from "../../domain/ports/PlanningPorts";
 import { LangSmithAdapter } from "../../infrastructure/telemetry/LangSmithAdapter";
 import { ILLMService } from "../ports/ILLMService";
+import { logger } from "@/infrastructure/telemetry/logger";
 
 /**
  * @fileoverview Orquestador Jerárquico de Planificación de Bodas.
@@ -20,18 +21,18 @@ export interface PlanningState {
   // Silos Cognitivos (Aislamiento de Contexto)
   financialContext: {
     totalBudget?: number;
-    allocations: any[];
+    allocations: BudgetAllocation[];
   };
   aestheticContext: {
     moodboardVectors?: number[];
     stylePreferences: string[];
   };
   legalContext: {
-    risks: any[];
+    risks: LegalRisk[];
     isSafeToProceed: boolean;
   };
   sharedContext: {
-    foundVendors: any[];
+    foundVendors: Vendor[];
   };
 }
 
@@ -50,14 +51,14 @@ export class WeddingPlanningOrchestrator {
           default: () => [] 
         },
         summary: { reducer: (x: string, y: string) => y ?? x, default: () => "" },
-        nextModule: { reducer: (x: any, y: any) => y ?? x, default: () => null },
+        nextModule: { reducer: (x: PlanningState["nextModule"], y: PlanningState["nextModule"]) => y ?? x, default: () => null },
         correlationId: { reducer: (x: string, y: string) => x, default: () => "" },
         tenantId: { reducer: (x: string, y: string) => x, default: () => "" },
         completedTasks: { reducer: (x: string[], y: string[]) => [...new Set([...x, ...y])], default: () => [] },
-        financialContext: { reducer: (x: any, y: any) => ({ ...x, ...y }), default: () => ({ allocations: [] }) },
-        aestheticContext: { reducer: (x: any, y: any) => ({ ...x, ...y }), default: () => ({ stylePreferences: [] }) },
-        legalContext: { reducer: (x: any, y: any) => ({ ...x, ...y }), default: () => ({ risks: [], isSafeToProceed: false }) },
-        sharedContext: { reducer: (x: any, y: any) => ({ ...x, ...y }), default: () => ({ foundVendors: [] }) },
+        financialContext: { reducer: (x: PlanningState["financialContext"], y: Partial<PlanningState["financialContext"]>) => ({ ...x, ...y }), default: () => ({ allocations: [] }) },
+        aestheticContext: { reducer: (x: PlanningState["aestheticContext"], y: Partial<PlanningState["aestheticContext"]>) => ({ ...x, ...y }), default: () => ({ stylePreferences: [] }) },
+        legalContext: { reducer: (x: PlanningState["legalContext"], y: Partial<PlanningState["legalContext"]>) => ({ ...x, ...y }), default: () => ({ risks: [], isSafeToProceed: false }) },
+        sharedContext: { reducer: (x: PlanningState["sharedContext"], y: Partial<PlanningState["sharedContext"]>) => ({ ...x, ...y }), default: () => ({ foundVendors: [] }) },
         source: { reducer: (x: "whatsapp" | "voice" | undefined, y: "whatsapp" | "voice" | undefined) => y ?? x, default: () => "whatsapp" as const },
       }
     });
@@ -87,7 +88,12 @@ export class WeddingPlanningOrchestrator {
 
       const lastInput = (state.messages[0]?.content || "").toString().toUpperCase();
 
-      console.log(`[SUPERVISOR] Evaluando tareas. Completadas: \${state.completedTasks.join(", ")}`);
+      logger.info("Supervisor evaluando tareas.", {
+        component: "WeddingPlanningOrchestrator",
+        operation: "supervisor",
+        tenantId: state.tenantId,
+        completedTasks: state.completedTasks.length,
+      });
       
       if (lastInput.includes("ALERTA_CONTINGENCIA")) {
         return { nextModule: "contingency_manager" as const };
@@ -112,10 +118,14 @@ export class WeddingPlanningOrchestrator {
 
     // 2. Nodo Budget (Silo Financiero)
     workflow.addNode("budget_agent", async (state: PlanningState) => {
-      console.log(`[BUDGET_AGENT] Optimizando presupuesto.`);
+      logger.info("Optimizando presupuesto.", {
+        component: "WeddingPlanningOrchestrator",
+        operation: "budget_agent",
+        tenantId: state.tenantId,
+      });
       const allocations = await this.budgetService.calculateOptimalAllocation(state.financialContext.totalBudget || 50000, "");
       return { 
-        messages: [{ role: "assistant", content: "Presupuesto optimizado." } as any],
+        messages: [new AIMessage("Presupuesto optimizado.")],
         completedTasks: ["budget"],
         financialContext: { allocations },
         nextModule: "supervisor" as const 
@@ -126,7 +136,7 @@ export class WeddingPlanningOrchestrator {
     workflow.addNode("vendor_agent", async (state: PlanningState) => {
       const vendors = await this.vendorRepo.searchVendors({ maxPrice: 20000 });
       return { 
-        messages: [{ role: "assistant", content: "Proveedores alineados encontrados." } as any],
+        messages: [new AIMessage("Proveedores alineados encontrados.")],
         completedTasks: ["vendor"],
         sharedContext: { foundVendors: vendors },
         nextModule: "supervisor" as const 
@@ -136,7 +146,7 @@ export class WeddingPlanningOrchestrator {
     // ...) Nodo Compliance
     workflow.addNode("compliance_agent", async (state: PlanningState) => {
       return { 
-        messages: [{ role: "assistant", content: "Auditoría legal completada." } as any],
+        messages: [new AIMessage("Auditoria legal completada.")],
         completedTasks: ["compliance"],
         legalContext: { risks: [], isSafeToProceed: true },
         nextModule: "supervisor" as const 
@@ -150,7 +160,7 @@ export class WeddingPlanningOrchestrator {
       if (lastInput.includes("confirma")) toolMessage = "Asistencia confirmada.";
       
       return { 
-        messages: [{ role: "assistant", content: toolMessage || "Voz procesada." } as any],
+        messages: [new AIMessage(toolMessage || "Voz procesada.")],
         summary: "Procesando voz...",
         nextModule: "finalizer" as const 
       };
@@ -159,7 +169,7 @@ export class WeddingPlanningOrchestrator {
     // 6. Nodo Finalizer (Síntesis)
     workflow.addNode("finalizer", async (state: PlanningState) => {
       return { 
-        messages: [{ role: "assistant", content: "Planificación completada." } as any],
+        messages: [new AIMessage("Planificacion completada.")],
         nextModule: null 
       };
     });
@@ -183,15 +193,15 @@ export class WeddingPlanningOrchestrator {
     });
 
     workflow.addNode("vendor_voice_node", async (state: PlanningState) => {
-      return { messages: [{ role: "assistant", content: "Llamadas completadas." } as any] };
+      return { messages: [new AIMessage("Llamadas completadas.")] };
     });
 
     workflow.addNode("guest_broadcast_node", async (state: PlanningState) => {
-      return { messages: [{ role: "assistant", content: "Broadcast enviado." } as any] };
+      return { messages: [new AIMessage("Broadcast enviado.")] };
     });
 
     workflow.addNode("staff_alert_node", async (state: PlanningState) => {
-      return { messages: [{ role: "assistant", content: "Alertas enviadas." } as any] };
+      return { messages: [new AIMessage("Alertas enviadas.")] };
     });
 
     workflow.addEdge("contingency_manager", "vendor_voice_node");
@@ -212,18 +222,47 @@ export class WeddingPlanningOrchestrator {
 
   public async *streamPlanning(inputs: Partial<PlanningState>) {
     const app = this.createGraph();
-    const stream = await app.stream(inputs as any, { streamMode: "updates" });
+    const stream = await app.stream(toPlanningState(inputs), { streamMode: "updates" });
 
     for await (const update of stream) {
       const nodeName = Object.keys(update)[0];
-      const delta = update[nodeName] as any;
+      const delta = (update as Record<string, Partial<PlanningState>>)[nodeName] || {};
 
       yield {
         node: nodeName,
         status: "completed",
-        message: (delta.messages && delta.messages.length > 0) ? delta.messages[0].content : "",
+        message: delta.messages && delta.messages.length > 0 ? String(delta.messages[0].content) : "",
         completedTasks: delta.completedTasks || []
       };
     }
   }
+}
+
+function toPlanningState(input: Partial<PlanningState>): PlanningState {
+  return {
+    messages: input.messages || [],
+    summary: input.summary || "",
+    nextModule: input.nextModule ?? null,
+    correlationId: input.correlationId || "",
+    tenantId: input.tenantId || "",
+    completedTasks: input.completedTasks || [],
+    source: input.source || "whatsapp",
+    financialContext: {
+      allocations: [],
+      ...input.financialContext,
+    },
+    aestheticContext: {
+      stylePreferences: [],
+      ...input.aestheticContext,
+    },
+    legalContext: {
+      risks: [],
+      isSafeToProceed: false,
+      ...input.legalContext,
+    },
+    sharedContext: {
+      foundVendors: [],
+      ...input.sharedContext,
+    },
+  };
 }

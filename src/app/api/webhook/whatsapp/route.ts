@@ -1,18 +1,9 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { z } from 'zod';
-import { createHmac } from 'crypto';
-import { TenantResolutionService } from '@/application/services/TenantResolutionService';
-import { WhatsAppWebhookHandler } from '@/application/services/WhatsAppWebhookHandler';
-import { WeddingPlanningOrchestrator } from '@/application/use-cases/WeddingPlanningOrchestrator';
-import { WhatsAppCloudAdapter } from '@/infrastructure/adapters/WhatsAppCloudAdapter';
-import { PdfParserAdapter } from '@/infrastructure/adapters/PdfParserAdapter';
-
-
-
-/**
- * @fileoverview Webhook para WhatsApp Business Cloud API.
- * Anillo 4: Adaptador SaaS con Protección Redis y Firma Meta.
- */
+import { NextRequest, NextResponse } from "next/server";
+import { createHmac, timingSafeEqual } from "crypto";
+import { z } from "zod";
+import { inngest } from "@/infrastructure/jobs/InngestClient";
+import { RedisCacheClient } from "@/infrastructure/cache/RedisClient";
+import { logger } from "@/infrastructure/telemetry/logger";
 
 const WhatsAppWebhookSchema = z.object({
   object: z.string(),
@@ -20,105 +11,106 @@ const WhatsAppWebhookSchema = z.object({
     id: z.string(),
     changes: z.array(z.object({
       value: z.object({
+        contacts: z.array(z.object({
+          profile: z.object({ name: z.string() }),
+          wa_id: z.string(),
+        })).optional(),
         messages: z.array(z.object({
           id: z.string(),
           from: z.string(),
+          timestamp: z.string().optional(),
           text: z.object({ body: z.string() }).optional(),
-          image: z.object({ id: z.string(), mime_type: z.string() }).optional(),
-          document: z.object({ id: z.string(), mime_type: z.string(), filename: z.string().optional() }).optional(),
-          type: z.string()
-        })).optional()
-
+          type: z.string(),
+        })).optional(),
       }),
-      field: z.string()
-    }))
-  }))
+      field: z.string().optional(),
+    })),
+  })),
 });
+
+const memoryIdempotencyCache = new Set<string>();
 
 export async function POST(req: NextRequest) {
   try {
     const rawBody = await req.text();
-    const signature = req.headers.get('x-hub-signature-256');
+    const signature = req.headers.get("x-hub-signature-256");
 
-    // 1. Validación de Firma de Meta (SHA-256)
     if (!validateMetaSignature(rawBody, signature)) {
-      return new Response('Unauthorized', { status: 401 });
+      return new Response("Unauthorized", { status: 401 });
     }
 
-    const body = JSON.parse(rawBody);
-    const payload = WhatsAppWebhookSchema.safeParse(body);
-    if (!payload.success) return NextResponse.json({ status: 'received' });
-
-    // 2. Extracción de Metadatos Críticos
-    const entry = payload.data.entry[0];
-    const wabaId = entry.id;
-    const messages = entry.changes[0].value.messages;
-
-    if (!messages || messages.length === 0) {
-      return NextResponse.json({ status: 'received' });
+    const payload = WhatsAppWebhookSchema.safeParse(JSON.parse(rawBody));
+    if (!payload.success) {
+      return NextResponse.json({ status: "received" });
     }
 
-    const currentMsg = messages[0];
+    const value = payload.data.entry[0]?.changes[0]?.value;
+    const message = value?.messages?.[0];
+    const contact = value?.contacts?.[0];
 
-    // 3. Resolución de Tenant (Redis Cache-Aside) e Idempotencia
-    const [tenantCtx, isDuplicate] = await Promise.all([
-      TenantResolutionService.resolveByWabaId(wabaId),
-      TenantResolutionService.isMessageDuplicate(currentMsg.id)
-    ]);
-
-    if (isDuplicate) {
-      console.info(`[REDIS_IDEMPOTENCY] Msg ${currentMsg.id} descartado.`);
-      return NextResponse.json({ status: 'received' });
+    if (!message || !contact) {
+      return NextResponse.json({ status: "received" });
     }
 
-    if (!tenantCtx) {
-      console.warn(`[MULTI-TENANT] Contexto no resuelto para WABA ${wabaId}`);
-      return NextResponse.json({ status: 'received' });
+    if (await isDuplicateWebhookMessage(message.id)) {
+      logger.info("Mensaje duplicado descartado en ruta legacy.", {
+        component: "WhatsAppLegacyWebhookRoute",
+        operation: "idempotency",
+      });
+      return NextResponse.json({ status: "received" });
     }
 
-    // 4. Procesamiento Asíncrono (Offloading)
-    const handler = new WhatsAppWebhookHandler(
-      new WeddingPlanningOrchestrator(
-        {} as any, 
-        {} as any 
-      ),
-      new WhatsAppCloudAdapter(),
-      new PdfParserAdapter()
-    );
-
-    handler.handleWebhookEvent(body).catch((err: any) => {
-      console.error("[WA_ASYNC_ERROR]", err);
+    await inngest.send({
+      name: "whatsapp/message.received",
+      data: {
+        wamid: message.id,
+        phone: message.from,
+        guestName: contact.profile.name,
+        text: message.text?.body || "",
+        timestamp: message.timestamp || `${Date.now()}`,
+      },
     });
 
-
-    return NextResponse.json({ status: 'received' });
-
-  } catch (err) {
-    console.error("[WHATSAPP_FATAL_ERROR]", err);
-    return NextResponse.json({ error: 'Internal logging' }, { status: 200 });
+    return NextResponse.json({ status: "received" });
+  } catch (error) {
+    logger.error("Error procesando webhook legacy de WhatsApp.", {
+      component: "WhatsAppLegacyWebhookRoute",
+      operation: "POST",
+      errorMessage: error instanceof Error ? error.message : "unknown",
+    });
+    return NextResponse.json({ status: "received" }, { status: 200 });
   }
-}
-
-// ... rest of the file
-
-
-function validateMetaSignature(body: string, signature: string | null): boolean {
-  if (!signature) return false;
-  const hash = createHmac('sha256', process.env.WHATSAPP_APP_SECRET || '')
-    .update(body)
-    .digest('hex');
-  return `sha256=${hash}` === signature;
-}
-
-function processAsyncMessage(from: string, text: string, tenantId: string) {
-  // Lógica asíncrona hacia LangGraph
-  console.info(`[OFFLOADING] Desviando mensaje a LangGraph para Tenant ${tenantId}`);
 }
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
-  if (searchParams.get('hub.verify_token') === process.env.WHATSAPP_VERIFY_TOKEN) {
-    return new Response(searchParams.get('hub.challenge'), { status: 200 });
+  const token = searchParams.get("hub.verify_token");
+  const challenge = searchParams.get("hub.challenge");
+
+  if (token === process.env.WHATSAPP_VERIFY_TOKEN) {
+    return new Response(challenge, { status: 200 });
   }
-  return new Response('Forbidden', { status: 403 });
+
+  return new Response("Forbidden", { status: 403 });
+}
+
+function validateMetaSignature(body: string, signature: string | null): boolean {
+  const appSecret = process.env.WHATSAPP_APP_SECRET;
+  if (!signature || !appSecret) return false;
+
+  const expected = `sha256=${createHmac("sha256", appSecret).update(body).digest("hex")}`;
+  const expectedBuffer = Buffer.from(expected);
+  const signatureBuffer = Buffer.from(signature);
+
+  return expectedBuffer.length === signatureBuffer.length && timingSafeEqual(expectedBuffer, signatureBuffer);
+}
+
+async function isDuplicateWebhookMessage(wamid: string): Promise<boolean> {
+  if (RedisCacheClient.isConfigured()) {
+    return RedisCacheClient.isDuplicate(wamid);
+  }
+
+  if (memoryIdempotencyCache.has(wamid)) return true;
+  memoryIdempotencyCache.add(wamid);
+  return false;
 }

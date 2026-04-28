@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
 import { inngest } from "@/infrastructure/jobs/InngestClient";
 import { z } from "zod";
+import { RedisCacheClient } from "@/infrastructure/cache/RedisClient";
+import { logger } from "@/infrastructure/telemetry/logger";
 
 /**
  * @fileoverview Webhook Puente de Meta (WhatsApp Graph API) - Anillo 4.
@@ -53,8 +55,6 @@ const WhatsAppPayloadSchema = z.object({
 
 type WhatsAppPayload = z.infer<typeof WhatsAppPayloadSchema>;
 
-// Diccionario en Memoria Volátil para prueba local de Idempotencia
-// En producción: Redis (Upstash) o Tabla Dedicada en Postgres 5433
 const idempotencyCache = new Set<string>();
 
 /**
@@ -67,7 +67,10 @@ export async function GET(request: NextRequest) {
   const challenge = searchParams.get("hub.challenge");
 
   if (mode === "subscribe" && token === WHATSAPP_VERIFY_TOKEN) {
-    console.log("🔒 [WEBHOOK WA] Handshake de Meta exitoso.");
+    logger.info("Handshake de Meta exitoso.", {
+      component: "WhatsAppWebhookRoute",
+      operation: "GET",
+    });
     return new NextResponse(challenge, { status: 200 });
   }
 
@@ -85,7 +88,10 @@ export async function POST(request: NextRequest) {
     const signature = request.headers.get("x-hub-signature-256");
 
     if (!signature) {
-      console.warn("⚠️ [WEBHOOK WA] Petición rechazada: Sin firma.");
+      logger.warn("Peticion de WhatsApp rechazada: sin firma.", {
+        component: "WhatsAppWebhookRoute",
+        operation: "POST",
+      });
       return new NextResponse("Missing Signature", { status: 401 });
     }
 
@@ -103,7 +109,10 @@ export async function POST(request: NextRequest) {
       expectedBuffer.length !== signatureBuffer.length ||
       !crypto.timingSafeEqual(expectedBuffer, signatureBuffer)
     ) {
-      console.error("🚨 [WEBHOOK WA] Violación de Seguridad: Firma Inválida.");
+      logger.warn("Peticion de WhatsApp rechazada: firma invalida.", {
+        component: "WhatsAppWebhookRoute",
+        operation: "POST",
+      });
       return new NextResponse("Invalid Signature", { status: 401 });
     }
 
@@ -135,13 +144,13 @@ export async function POST(request: NextRequest) {
     // REGLA DE ARQUITECTURA 3: Barrera de Idempotencia (wamid)
     const wamid = message.id;
 
-    if (idempotencyCache.has(wamid)) {
-      console.log(`♻️ [WEBHOOK WA] Duplicado detectado y evadido: ${wamid}`);
+    if (await isDuplicateWebhookMessage(wamid)) {
+      logger.info("Mensaje duplicado de WhatsApp descartado.", {
+        component: "WhatsAppWebhookRoute",
+        operation: "idempotency",
+      });
       return new NextResponse("OK", { status: 200 });
     }
-
-    // Registrar en caché (Simulador de Redis para persistencia local)
-    idempotencyCache.add(wamid);
 
     // REGLA DE ARQUITECTURA 4: Despacho Asíncrono (Inngest)
     // El puerto 5433 (Postgres) y Ollama (11434) se usarán dentro del Job
@@ -156,14 +165,33 @@ export async function POST(request: NextRequest) {
       }
     });
 
-    console.log(`✅ [WEBHOOK WA] Evento despachado a Inngest: ${wamid}`);
+    logger.info("Evento de WhatsApp despachado a Inngest.", {
+      component: "WhatsAppWebhookRoute",
+      operation: "inngest.send",
+    });
 
     // SLA DE META: Respuesta garantizada en milisegundos
     return new NextResponse("OK", { status: 200 });
 
   } catch (error) {
-    console.error("💥 [WEBHOOK WA] Error crítico procesando payload:", error);
+    logger.error("Error critico procesando webhook de WhatsApp.", {
+      component: "WhatsAppWebhookRoute",
+      operation: "POST",
+    });
     // Para Meta, si es un error nuestro devolvemos 500 para posible reintento
     return new NextResponse("Internal Server Error", { status: 500 });
   }
+}
+
+async function isDuplicateWebhookMessage(wamid: string): Promise<boolean> {
+  if (RedisCacheClient.isConfigured()) {
+    return RedisCacheClient.isDuplicate(wamid);
+  }
+
+  if (idempotencyCache.has(wamid)) {
+    return true;
+  }
+
+  idempotencyCache.add(wamid);
+  return false;
 }
