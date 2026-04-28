@@ -6,6 +6,7 @@ import { z } from 'zod';
 import { runPlanningStreamAction } from '@/app/actions/plannerOrchestratorAction';
 import { Skeleton } from './Skeleton';
 import { CheckCircle2, CircleDashed, Rocket } from 'lucide-react';
+import { motion } from 'framer-motion';
 
 /**
  * @fileoverview Componente de Generative UI para visualizar el streaming de agentes.
@@ -33,9 +34,9 @@ export function StreamingPlanner() {
 
   return (
     <div className="space-y-6">
-      <div className="flex gap-4">
+      <div className="flex flex-col gap-3 sm:flex-row">
         <input 
-          className="flex-1 p-3 rounded-lg border focus:ring-2 focus:ring-pink-500 outline-none transition-all"
+          className="flex-1 rounded-md border border-[#d7d2c8] bg-white p-3 text-sm outline-none transition-all focus:ring-2 focus:ring-[#7a643d]/20"
           placeholder="Ej: Planea mi presupuesto de $40k y busca fotógrafos..."
           value={prompt}
           onChange={(e) => setPrompt(e.target.value)}
@@ -43,7 +44,7 @@ export function StreamingPlanner() {
         <button 
           onClick={startPlanning}
           disabled={isStreaming || !prompt}
-          className="px-6 py-3 bg-slate-900 text-white rounded-lg hover:bg-slate-800 disabled:opacity-50 flex items-center gap-2 transition-colors"
+          className="flex items-center justify-center gap-2 rounded-md bg-[#20201d] px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-[#36332f] disabled:opacity-50"
         >
           <Rocket className="w-4 h-4" />
           Planificar con IA
@@ -53,24 +54,30 @@ export function StreamingPlanner() {
       {/* Thought Process UI */}
       <div className="space-y-4">
         {events.map((event, i) => (
-          <div key={i} className="flex gap-4 p-4 bg-white rounded-xl border animate-in fade-in slide-in-from-bottom-2 duration-500">
+          <motion.div
+            key={`${event.node}-${i}`}
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.22 }}
+            className="flex gap-4 rounded-md border border-[#ebe7df] bg-white p-4"
+          >
             <div className="mt-1">
-              <CheckCircle2 className="w-5 h-5 text-green-500" />
+              <CheckCircle2 className="w-5 h-5 text-[#2f6b45]" />
             </div>
             <div className="space-y-1">
-              <div className="text-xs font-bold uppercase tracking-wider text-slate-400">
+              <div className="text-xs font-semibold uppercase tracking-[0.12em] text-[#77736b]">
                 Agente {event.node} finalizado
               </div>
-              <p className="text-slate-700 text-sm leading-relaxed">{event.message}</p>
+              <p className="text-[#5d5a52] text-sm leading-relaxed">{event.message}</p>
             </div>
-          </div>
+          </motion.div>
         ))}
 
         {isStreaming && (
-          <div className="flex gap-4 p-4 bg-slate-50 rounded-xl border border-dashed border-slate-200">
-            <CircleDashed className="w-5 h-5 text-pink-500 animate-spin" />
+          <div className="flex gap-4 rounded-md border border-dashed border-[#d7d2c8] bg-[#f7f7f4] p-4">
+            <CircleDashed className="w-5 h-5 text-[#7a643d] animate-spin" />
             <div className="space-y-2 flex-1">
-              <div className="text-xs font-bold uppercase tracking-wider text-slate-400 animate-pulse">
+              <div className="text-xs font-semibold uppercase tracking-[0.12em] text-[#77736b] animate-pulse">
                 Procesando siguiente paso cognitivo...
               </div>
               <Skeleton className="h-4 w-3/4" />

@@ -1,10 +1,8 @@
-import { PrismaClient } from "@prisma/client";
 import { InvitationConversationService } from "@/application/services/InvitationConversationService";
 import { inngest } from "@/infrastructure/jobs/InngestClient";
 import { LLMProviderFactory } from "@/application/services/LLMProviderFactory";
 import { WhatsAppCloudAdapter } from "@/infrastructure/adapters/WhatsAppCloudAdapter";
-
-const prisma = new PrismaClient();
+import { prisma } from "@/infrastructure/database/prisma";
 
 export const processWhatsappMessage = inngest.createFunction(
   { id: "whatsapp-receiver", triggers: [{ event: "whatsapp/message.received" }] },

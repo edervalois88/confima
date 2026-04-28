@@ -1,14 +1,10 @@
+import { InfrastructureCommunicationError } from "@/domain/errors/InfrastructureError";
+export { InfrastructureCommunicationError } from "@/domain/errors/InfrastructureError";
+
 /**
  * @fileoverview Patrón Circuit Breaker para proteger llamadas externas.
  * Anillo 4: Resiliencia de infraestructura.
  */
-
-export class InfrastructureCommunicationError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = 'InfrastructureCommunicationError';
-  }
-}
 
 type CircuitState = 'CLOSED' | 'OPEN' | 'HALF_OPEN';
 

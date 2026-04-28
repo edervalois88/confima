@@ -4,10 +4,8 @@ import { GuestTable } from "@/presentation/components/GuestTable";
 import { Skeleton } from "@/presentation/components/Skeleton";
 import { StreamingPlanner } from "@/presentation/components/StreamingPlanner";
 import { DispatchInvitationsPanel } from "@/presentation/components/DispatchInvitationsPanel";
-import { PrismaClient } from "@prisma/client";
 import { GuestDirectoryService, RsvpSummary } from "@/application/services/GuestDirectoryService";
-
-const prisma = new PrismaClient();
+import { prisma } from "@/infrastructure/database/prisma";
 
 export default function DashboardPage() {
   return (

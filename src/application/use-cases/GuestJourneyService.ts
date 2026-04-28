@@ -1,12 +1,10 @@
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '@/infrastructure/database/prisma';
 import { DomainError } from '@/domain/errors/DomainError';
 
 /**
  * @fileoverview Servicio de Gestión de Invitados SaaS.
  * Anillo 2: Application.
  */
-
-const prisma = new PrismaClient();
 
 export class GuestJourneyService {
   /**

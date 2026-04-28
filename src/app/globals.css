@@ -3,11 +3,39 @@
 @tailwind utilities;
 
 :root {
-  --background: 0 0% 100%;
-  --foreground: 222.2 84% 4.9%;
+  --background: #f7f7f4;
+  --foreground: #20201d;
+  --border-soft: #d7d2c8;
+  --ink-muted: #5d5a52;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
+  text-rendering: optimizeLegibility;
+}
+
+::selection {
+  background: #e8dfcf;
+  color: #20201d;
+}
+
+:focus-visible {
+  outline: 2px solid #7a643d;
+  outline-offset: 3px;
+}
+
+* {
+  scrollbar-color: #c8c2b8 #f7f7f4;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
 }

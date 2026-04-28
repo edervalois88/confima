@@ -1,14 +1,12 @@
 'use server';
 
-import { PrismaClient } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
+import { prisma } from '@/infrastructure/database/prisma';
 
 /**
  * @fileoverview Acciones de servidor para la gestión de invitados.
  * Anillo 3: Adaptadores de Entrada.
  */
-
-const prisma = new PrismaClient();
 
 export async function updateGuestRSVPAction(guestId: string, status: string) {
   console.log(`[ACTION] Actualizando RSVP de ${guestId} a ${status}`);

@@ -1,13 +1,11 @@
 'use server';
 
-import { PrismaClient } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import { DispatchInvitationsResult, DispatchInvitationsUseCase } from '@/application/use-cases/DispatchInvitationsUseCase';
 import { InvitationTemplateDefinition } from '@/application/services/WhatsAppComplianceService';
 import { WhatsAppCloudAdapter } from '@/infrastructure/adapters/WhatsAppCloudAdapter';
-
-const prisma = new PrismaClient();
+import { prisma } from '@/infrastructure/database/prisma';
 
 const DispatchFormSchema = z.object({
   mode: z.enum(['dry-run', 'send']),
@@ -67,7 +65,7 @@ export async function dispatchInvitationsAction(
 
   return {
     ok: result.failed === 0,
-    message: `Despacho terminado: ${result.sent} enviadas, ${result.blocked} bloqueadas, ${result.failed} fallidas.`,
+    message: `Despacho terminado: ${result.sent} enviadas, ${result.blocked} bloqueadas, ${result.failed} fallidas, ${result.skipped} omitidas.`,
     result,
   };
 }

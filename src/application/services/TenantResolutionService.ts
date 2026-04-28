@@ -1,5 +1,5 @@
-import { PrismaClient } from '@prisma/client';
 import { RedisCacheClient } from '@/infrastructure/cache/RedisClient';
+import { prisma } from '@/infrastructure/database/prisma';
 
 /**
  * @fileoverview Servicio de Resolución de Contexto Multi-Tenant con Caché Redis.
@@ -14,8 +14,6 @@ export interface TenantContext {
     hasMapLogistics: boolean;
   };
 }
-
-const prisma = new PrismaClient();
 
 export class TenantResolutionService {
   /**

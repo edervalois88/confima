@@ -1,16 +1,16 @@
 import { IMessagingProvider } from '@/domain/ports/IMessagingProvider';
-import { PrismaClient } from '@prisma/client';
 import {
   InvitationTemplateDefinition,
   WhatsAppComplianceService,
 } from '@/application/services/WhatsAppComplianceService';
+import { prisma } from '@/infrastructure/database/prisma';
+import { logger } from '@/infrastructure/telemetry/logger';
+import { ProviderCommunicationError } from '@/domain/errors/InfrastructureError';
 
 /**
  * @fileoverview Caso de Uso para el despacho masivo de invitaciones.
  * Anillo 2: Application.
  */
-
-const prisma = new PrismaClient();
 
 export interface DispatchInvitationsOptions {
   dryRun?: boolean;
@@ -53,7 +53,12 @@ export class DispatchInvitationsUseCase {
       take: options.limit || 50,
     });
 
-    console.log(`[DISPATCH] Iniciando envío de ${guests.length} invitaciones para Tenant ${tenantId}`);
+    logger.info("Iniciando despacho de invitaciones.", {
+      component: "DispatchInvitationsUseCase",
+      tenantId,
+      total: guests.length,
+      dryRun: options.dryRun === true,
+    });
 
     const result: DispatchInvitationsResult = {
       dryRun: options.dryRun === true,
@@ -176,9 +181,16 @@ export class DispatchInvitationsUseCase {
         });
 
       } catch (error) {
-        console.error(`[DISPATCH_ERROR] Fallo al enviar a ${guest.phoneFingerprint}:`, error);
+        logger.warn("Fallo al enviar invitacion.", {
+          component: "DispatchInvitationsUseCase",
+          tenantId,
+          guestId: guest.id,
+          eventId: guest.eventId,
+          status: error instanceof ProviderCommunicationError ? error.status : "unknown",
+          code: error instanceof ProviderCommunicationError ? error.providerCode : "unknown",
+        });
         result.failed += 1;
-        const reason = error instanceof Error ? error.message.slice(0, 500) : "Error desconocido";
+        const reason = toDispatchErrorReason(error);
         result.details.push({
           guestId: guest.id,
           guestName: guest.name || "Invitado sin nombre",
@@ -199,6 +211,23 @@ export class DispatchInvitationsUseCase {
               complianceReason: reason,
             },
           });
+        }
+
+        if (isGlobalDispatchBlocker(error)) {
+          const remainingGuests = guests.slice(guests.indexOf(guest) + 1);
+          result.skipped += remainingGuests.length;
+
+          for (const remainingGuest of remainingGuests) {
+            result.details.push({
+              guestId: remainingGuest.id,
+              guestName: remainingGuest.name || "Invitado sin nombre",
+              phone: remainingGuest.phoneFingerprint,
+              status: "SKIPPED",
+              reason: "Despacho detenido por error global de autenticacion/configuracion.",
+            });
+          }
+
+          break;
         }
       }
     }
@@ -238,4 +267,20 @@ export class DispatchInvitationsUseCase {
       },
     });
   }
+}
+
+function isGlobalDispatchBlocker(error: unknown): boolean {
+  return error instanceof ProviderCommunicationError && (error.status === 401 || error.providerCode === 190);
+}
+
+function toDispatchErrorReason(error: unknown): string {
+  if (error instanceof ProviderCommunicationError) {
+    return error.message;
+  }
+
+  if (error instanceof Error) {
+    return error.message.slice(0, 240);
+  }
+
+  return "Error desconocido durante el envio.";
 }

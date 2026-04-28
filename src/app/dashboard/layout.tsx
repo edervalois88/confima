@@ -1,6 +1,6 @@
 import React from 'react';
-import Link from 'next/link';
-import { LayoutDashboard, Users, Bot, Briefcase, ShieldAlert, Settings, Bell, Search, PenLine } from 'lucide-react';
+import { Bell, PenLine, Search } from 'lucide-react';
+import { DashboardNav, DashboardSettingsNav } from '@/presentation/components/DashboardNav';
 
 /**
  * @fileoverview Layout base del Dashboard (Premium Shell).
@@ -22,33 +22,32 @@ export default function DashboardLayout({
           <span className="text-2xl font-semibold tracking-normal text-white">con Firma</span>
         </div>
 
-        <div className="text-xs font-semibold text-[#8f887d] uppercase tracking-wider mb-4 px-2">Operacion</div>
-        <nav className="space-y-1 flex-1">
-          <NavItem href="/dashboard" icon={<LayoutDashboard className="w-5 h-5" />} label="Resumen General" active />
-          <NavItem href="/dashboard/guests" icon={<Users className="w-5 h-5" />} label="Gestión de Invitados" />
-          <NavItem href="/dashboard/ai" icon={<Bot className="w-5 h-5" />} label="Asistente WhatsApp" />
-          
-          <div className="mt-8 mb-4 px-2 text-xs font-semibold text-[#8f887d] uppercase tracking-wider">Adicionales</div>
-          
-          <NavItem href="/dashboard/vendors" icon={<Briefcase className="w-5 h-5" />} label="Proveedores & Presupuesto" />
-          <NavItem href="/dashboard/compliance" icon={<ShieldAlert className="w-5 h-5" />} label="Auditoría Legal" />
-        </nav>
+        <div className="flex-1">
+          <DashboardNav variant="sidebar" />
+        </div>
 
         <div className="mt-auto pt-6 border-t border-[#37332d] space-y-1">
-          <NavItem href="/dashboard/settings" icon={<Settings className="w-5 h-5" />} label="Configuracion" />
+          <DashboardSettingsNav />
         </div>
       </aside>
 
       {/* Main Content Area */}
       <main className="flex-1 flex flex-col relative w-full">
         {/* Header Flotante */}
-        <header className="h-20 bg-white border-b border-[#e3ded5] flex items-center justify-between px-8 sticky top-0 z-10">
-          <div className="flex items-center gap-4 bg-[#f7f7f4] px-4 py-2 rounded-md border border-[#d7d2c8] flex-1 max-w-md focus-within:ring-2 ring-[#7a643d]/20 transition-all">
+        <header className="min-h-20 bg-white border-b border-[#e3ded5] flex items-center justify-between gap-3 px-4 py-4 sm:px-6 lg:px-8 sticky top-0 z-10">
+          <div className="flex items-center gap-3 md:hidden">
+            <div className="flex h-9 w-9 items-center justify-center rounded-md border border-[#d7d2c8] bg-[#20201d] text-white">
+              <PenLine className="h-4 w-4" />
+            </div>
+            <span className="text-lg font-semibold">con Firma</span>
+          </div>
+
+          <div className="hidden items-center gap-4 bg-[#f7f7f4] px-4 py-2 rounded-md border border-[#d7d2c8] flex-1 max-w-md focus-within:ring-2 ring-[#7a643d]/20 transition-all sm:flex">
             <Search className="w-4 h-4 text-[#77736b]" />
             <input type="text" placeholder="Buscar invitados, confirmaciones, alergias..." className="bg-transparent border-none focus:outline-none text-sm w-full" />
           </div>
 
-          <div className="flex items-center gap-6 ml-4">
+          <div className="flex items-center gap-3 sm:gap-6 sm:ml-4">
             <button className="relative text-[#77736b] hover:text-[#20201d] transition-colors">
               <Bell className="w-5 h-5" />
               <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-[#8e3f3f] rounded-full border-2 border-white"></span>
@@ -66,6 +65,10 @@ export default function DashboardLayout({
           </div>
         </header>
 
+        <div className="md:hidden border-b border-[#e3ded5] bg-[#fbfaf8]">
+          <DashboardNav variant="mobile" />
+        </div>
+
         {/* Dynamic Content */}
         <div className="flex-1 overflow-y-auto bg-[#f7f7f4] p-6 lg:p-10">
           <div className="max-w-7xl mx-auto">
@@ -76,22 +79,3 @@ export default function DashboardLayout({
     </div>
   );
 }
-
-function NavItem({ href, icon, label, active = false }: { href: string, icon: React.ReactNode, label: string, active?: boolean }) {
-  return (
-    <Link 
-      href={href} 
-      className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all group ${
-        active 
-          ? 'bg-white/10 text-white' 
-          : 'text-[#d8d3ca] hover:bg-white/5 hover:text-white'
-      }`}
-    >
-      <div className={`${active ? 'text-white' : 'text-[#8f887d] group-hover:text-white'} transition-colors`}>
-        {icon}
-      </div>
-      {label}
-    </Link>
-  );
-}
-

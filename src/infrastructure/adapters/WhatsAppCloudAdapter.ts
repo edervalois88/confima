@@ -1,4 +1,7 @@
 import { IMessagingProvider, MessageTemplate } from "../../domain/ports/IMessagingProvider";
+import { InfrastructureCommunicationError, ProviderCommunicationError } from "@/domain/errors/InfrastructureError";
+import { logger } from "../telemetry/logger";
+import { z } from "zod";
 
 /**
  * @fileoverview Adaptador para Meta WhatsApp Cloud API.
@@ -11,6 +14,30 @@ interface WhatsAppApiMessageResponse {
 
 interface WhatsAppMediaLookupResponse {
   url: string;
+}
+
+const WhatsAppErrorResponseSchema = z.object({
+  error: z.object({
+    message: z.string().optional(),
+    type: z.string().optional(),
+    code: z.number().optional(),
+    error_subcode: z.number().optional(),
+    fbtrace_id: z.string().optional(),
+  }).optional(),
+});
+
+export class WhatsAppCloudApiError extends ProviderCommunicationError {
+  constructor(input: {
+    status: number;
+    providerCode?: number;
+    providerType?: string;
+    message: string;
+    retryable?: boolean;
+  }) {
+    super(input);
+    this.name = "WhatsAppCloudApiError";
+    Object.setPrototypeOf(this, WhatsAppCloudApiError.prototype);
+  }
 }
 
 export class WhatsAppCloudAdapter implements IMessagingProvider {
@@ -87,6 +114,14 @@ export class WhatsAppCloudAdapter implements IMessagingProvider {
 
   private async postToWhatsApp(payload: object): Promise<WhatsAppApiMessageResponse> {
     try {
+      if (!this.accessToken || !this.phoneNumberId) {
+        throw new WhatsAppCloudApiError({
+          status: 401,
+          message: "WhatsApp no esta configurado: falta token de acceso o phone number id.",
+          retryable: false,
+        });
+      }
+
       const response = await fetch(`${this.apiUrl}/${this.phoneNumberId}/messages`, {
         method: "POST",
         headers: {
@@ -98,15 +133,79 @@ export class WhatsAppCloudAdapter implements IMessagingProvider {
 
       if (!response.ok) {
         const errorBody = await response.text();
-        throw new Error(`Meta message send failed with ${response.status}: ${errorBody}`);
+        const metaError = parseWhatsAppError(errorBody);
+        throw new WhatsAppCloudApiError({
+          status: response.status,
+          providerCode: metaError.code,
+          providerType: metaError.type,
+          message: toSafeWhatsAppErrorMessage(response.status, metaError),
+          retryable: response.status >= 500 || response.status === 429,
+        });
       }
 
-      console.log("[WA_ADAPTER] Mensaje enviado exitosamente.");
+      logger.info("Mensaje de WhatsApp enviado.", {
+        component: "WhatsAppCloudAdapter",
+        provider: "meta",
+        status: response.status,
+      });
       return await response.json() as WhatsAppApiMessageResponse;
     } catch (error) {
-      console.error("[WA_ADAPTER_ERROR]", error);
+      if (error instanceof WhatsAppCloudApiError) {
+        logger.warn("WhatsApp rechazo el envio.", {
+          component: "WhatsAppCloudAdapter",
+          provider: "meta",
+          status: error.status,
+          code: error.providerCode,
+        });
+        throw error;
+      }
+
       const message = error instanceof Error ? error.message : "Error desconocido";
-      throw new Error(`Error comunicando con WhatsApp Cloud API: ${message}`);
+      logger.error("Error no clasificado comunicando con WhatsApp.", {
+        component: "WhatsAppCloudAdapter",
+        provider: "meta",
+      });
+      throw new InfrastructureCommunicationError(`Error comunicando con WhatsApp Cloud API: ${message}`);
     }
   }
+}
+
+function parseWhatsAppError(rawBody: string): {
+  message?: string;
+  type?: string;
+  code?: number;
+  errorSubcode?: number;
+} {
+  try {
+    const parsed = WhatsAppErrorResponseSchema.safeParse(JSON.parse(rawBody));
+    if (!parsed.success || !parsed.data.error) return {};
+
+    return {
+      message: parsed.data.error.message,
+      type: parsed.data.error.type,
+      code: parsed.data.error.code,
+      errorSubcode: parsed.data.error.error_subcode,
+    };
+  } catch {
+    return {};
+  }
+}
+
+function toSafeWhatsAppErrorMessage(
+  status: number,
+  metaError: { message?: string; type?: string; code?: number; errorSubcode?: number }
+): string {
+  if (status === 401 || metaError.code === 190) {
+    return "WhatsApp rechazo el envio por autenticacion. Renueva WHATSAPP_ACCESS_TOKEN en Vercel.";
+  }
+
+  if (status === 400) {
+    return "WhatsApp rechazo el envio por plantilla, idioma, variables o numero destino invalido.";
+  }
+
+  if (status === 429) {
+    return "WhatsApp limito temporalmente el envio. Reduce el lote y reintenta mas tarde.";
+  }
+
+  return `WhatsApp rechazo el envio con estado ${status}.`;
 }

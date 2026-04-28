@@ -3,6 +3,7 @@
 import React, { useOptimistic, useTransition, useState } from 'react';
 import { updateGuestRSVPAction } from '@/presentation/actions/guestActions';
 import { cn } from '@/lib/utils';
+import { motion } from 'framer-motion';
 
 
 export interface Guest {
@@ -54,7 +55,7 @@ export function GuestTable({ guests: initialGuests }: GuestTableProps) {
 
   return (
     <div className="overflow-x-auto">
-      <table className="w-full text-left">
+      <table className="w-full min-w-[880px] text-left">
         <thead>
           <tr className="border-b border-[#ebe7df] text-[#77736b] text-xs font-semibold uppercase tracking-widest">
             <th className="pb-4 pt-2">Invitado</th>
@@ -68,8 +69,14 @@ export function GuestTable({ guests: initialGuests }: GuestTableProps) {
           </tr>
         </thead>
         <tbody className="divide-y divide-[#ebe7df] text-[#5d5a52]">
-          {optimisticGuests.map((guest) => (
-            <tr key={guest.id} className="group hover:bg-[#f7f7f4] transition-colors">
+          {optimisticGuests.map((guest, index) => (
+            <motion.tr
+              key={guest.id}
+              initial={{ opacity: 0, y: 4 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.18, delay: Math.min(index * 0.015, 0.12) }}
+              className="group hover:bg-[#f7f7f4] transition-colors"
+            >
               <td className="py-4 font-medium text-[#20201d]">{guest.name}</td>
               <td className="py-4 text-sm">{guest.eventName ?? 'Sin evento'}</td>
               <td className="py-4 text-sm">{guest.phone}</td>
@@ -77,7 +84,7 @@ export function GuestTable({ guests: initialGuests }: GuestTableProps) {
               <td className="py-4 text-sm">{guest.specialNeed ?? 'Sin registro'}</td>
               <td className="py-4">
                 <span className={cnStatus(guest.rsvpStatus)}>
-                  {guest.rsvpStatus}
+                  {statusLabel(guest.rsvpStatus)}
                 </span>
               </td>
               <td className="py-4">
@@ -97,7 +104,7 @@ export function GuestTable({ guests: initialGuests }: GuestTableProps) {
                   <option value="DECLINED">Declinado</option>
                 </select>
               </td>
-            </tr>
+            </motion.tr>
           ))}
         </tbody>
       </table>
@@ -112,6 +119,16 @@ function cnStatus(status: string) {
     case 'DECLINED': return 'px-2 py-1 bg-[#f8eeee] text-[#8e3f3f] rounded-md text-[10px] font-bold';
     case 'DELIVERED': return 'px-2 py-1 bg-[#f5f0e7] text-[#7a643d] rounded-md text-[10px] font-bold';
     default: return 'px-2 py-1 bg-[#f7f7f4] text-[#5d5a52] rounded-md text-[10px] font-bold';
+  }
+}
+
+function statusLabel(status: string) {
+  switch (status) {
+    case 'CONFIRMED': return 'Confirmado';
+    case 'DECLINED': return 'No asiste';
+    case 'DELIVERED': return 'Entregado';
+    case 'READ': return 'Leido';
+    default: return 'Por enviar';
   }
 }
 

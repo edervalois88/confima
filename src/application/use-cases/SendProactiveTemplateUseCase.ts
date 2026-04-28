@@ -1,13 +1,11 @@
 import { IMessagingProvider } from "../../domain/ports/IMessagingProvider";
-import { PrismaClient } from "@prisma/client";
 import { WhatsAppComplianceService } from "@/application/services/WhatsAppComplianceService";
+import { prisma } from "@/infrastructure/database/prisma";
 
 /**
  * @fileoverview Caso de Uso para el envío proactivo de plantillas (RSVP, Mapas, etc.).
  * Anillo 2: Aplicación.
  */
-
-const prisma = new PrismaClient();
 
 export class SendProactiveTemplateUseCase {
   constructor(private readonly messagingProvider: IMessagingProvider) {}

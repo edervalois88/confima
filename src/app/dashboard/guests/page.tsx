@@ -3,32 +3,30 @@ import { Users, Filter, Download } from 'lucide-react';
 import { GuestTable } from '@/presentation/components/GuestTable';
 import { Skeleton } from '@/presentation/components/Skeleton';
 import { Suspense } from 'react';
-import { PrismaClient } from '@prisma/client';
 import { GuestDirectoryService } from '@/application/services/GuestDirectoryService';
-
-const prisma = new PrismaClient();
+import { prisma } from '@/infrastructure/database/prisma';
 
 export default function GuestsPage() {
   return (
     <div className="space-y-8 fade-in">
-      <header className="flex justify-between items-end">
+      <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div className="space-y-2">
-          <h2 className="text-3xl font-bold tracking-tight text-slate-900 flex items-center gap-3">
-            <Users className="w-8 h-8 text-indigo-500" /> Directorio de Invitados
+          <h2 className="flex items-center gap-3 text-3xl font-semibold tracking-normal text-[#20201d]">
+            <Users className="h-7 w-7 text-[#7a643d]" /> Directorio de Invitados
           </h2>
-          <p className="text-slate-500 text-lg">Administra RSVPs, requerimientos especiales y mesas.</p>
+          <p className="max-w-2xl text-base leading-7 text-[#5d5a52]">Administra RSVPs, requerimientos especiales y mesas.</p>
         </div>
-        <div className="flex gap-3">
-          <button className="px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-xl font-medium hover:bg-slate-50 flex items-center gap-2">
+        <div className="flex flex-wrap gap-3">
+          <button className="flex items-center gap-2 rounded-md border border-[#d7d2c8] bg-white px-4 py-2 text-sm font-semibold text-[#20201d] hover:bg-[#f7f7f4]">
             <Filter className="w-4 h-4" /> Filtrar
           </button>
-          <button className="px-4 py-2 bg-indigo-600 text-white rounded-xl font-medium hover:bg-indigo-700 flex items-center gap-2">
+          <button className="flex items-center gap-2 rounded-md bg-[#20201d] px-4 py-2 text-sm font-semibold text-white hover:bg-[#36332f]">
             <Download className="w-4 h-4" /> Exportar CSV
           </button>
         </div>
       </header>
 
-      <div className="bg-white rounded-2xl border shadow-sm p-2">
+      <div className="rounded-lg border border-[#d7d2c8] bg-white p-2 shadow-sm">
         <Suspense fallback={<Skeleton className="h-[600px] rounded-xl" />}>
           <GuestsTableFromDatabase />
         </Suspense>
