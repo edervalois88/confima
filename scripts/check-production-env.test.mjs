@@ -28,18 +28,19 @@ test("accepts a complete production environment", () => {
   assert.deepEqual(result.errors, []);
 });
 
-test("requires tenant, WhatsApp business account, and Upstash REST token", () => {
+test("requires tenant, WhatsApp business account, and one Redis configuration", () => {
   const result = validateProductionEnv({
     ...completeEnv,
     DASHBOARD_TENANT_ID: "",
     WHATSAPP_BUSINESS_ACCOUNT_ID: "",
+    UPSTASH_REDIS_REST_URL: "",
     UPSTASH_REDIS_REST_TOKEN: "",
   });
 
   assert.deepEqual(result.errors, [
     "Missing DASHBOARD_TENANT_ID",
     "Missing WHATSAPP_BUSINESS_ACCOUNT_ID",
-    "Missing UPSTASH_REDIS_REST_TOKEN",
+    "Missing Redis configuration: set UPSTASH_REDIS_REST_URL with UPSTASH_REDIS_REST_TOKEN, or REDIS_URL",
   ]);
 });
 
@@ -54,7 +55,7 @@ test("rejects Redis TCP URLs for the Upstash REST client", () => {
   ]);
 });
 
-test("reports the legacy misnamed Redis variable", () => {
+test("accepts the legacy Redis TCP variable", () => {
   const envWithoutRedisUrl = { ...completeEnv };
   delete envWithoutRedisUrl.UPSTASH_REDIS_REST_URL;
   const result = validateProductionEnv({
@@ -62,8 +63,18 @@ test("reports the legacy misnamed Redis variable", () => {
     UPSTASH_REDIS_REST_REDIS_URL: "redis://default:password@example.com:6379",
   });
 
-  assert.deepEqual(result.errors, [
-    "Missing UPSTASH_REDIS_REST_URL",
-    "UPSTASH_REDIS_REST_REDIS_URL is misnamed; use UPSTASH_REDIS_REST_URL",
-  ]);
+  assert.deepEqual(result.errors, []);
+});
+
+test("accepts Redis TCP configuration without Upstash REST credentials", () => {
+  const envWithTcpRedis = { ...completeEnv };
+  delete envWithTcpRedis.UPSTASH_REDIS_REST_URL;
+  delete envWithTcpRedis.UPSTASH_REDIS_REST_TOKEN;
+
+  const result = validateProductionEnv({
+    ...envWithTcpRedis,
+    REDIS_URL: "redis://default:password@example.com:6379",
+  });
+
+  assert.deepEqual(result.errors, []);
 });

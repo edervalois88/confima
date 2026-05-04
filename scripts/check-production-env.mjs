@@ -14,8 +14,6 @@ const requiredVariables = [
   "WHATSAPP_INVITATION_TEMPLATE_NAME",
   "WHATSAPP_TEMPLATE_LANGUAGE",
   "ENFORCE_WHATSAPP_OPT_IN",
-  "UPSTASH_REDIS_REST_URL",
-  "UPSTASH_REDIS_REST_TOKEN",
   "RETELL_API_KEY",
   "RETELL_AGENT_ID",
 ];
@@ -39,7 +37,15 @@ export function validateProductionEnv(env) {
   }
 
   if (!env.UPSTASH_REDIS_REST_URL && env.UPSTASH_REDIS_REST_REDIS_URL) {
-    errors.push("UPSTASH_REDIS_REST_REDIS_URL is misnamed; use UPSTASH_REDIS_REST_URL");
+    // Legacy Redis TCP URL from earlier configuration. Runtime supports it as fallback.
+  }
+
+  const hasUpstashRest = Boolean(env.UPSTASH_REDIS_REST_URL && env.UPSTASH_REDIS_REST_TOKEN);
+  const hasRedisTcp = Boolean(env.REDIS_URL || env.UPSTASH_REDIS_REST_REDIS_URL);
+  if (!hasUpstashRest && !hasRedisTcp) {
+    errors.push(
+      "Missing Redis configuration: set UPSTASH_REDIS_REST_URL with UPSTASH_REDIS_REST_TOKEN, or REDIS_URL"
+    );
   }
 
   if (!env.GROQ_API_KEY && !env.GOOGLE_AI_API_KEY) {

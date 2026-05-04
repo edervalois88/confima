@@ -1,4 +1,5 @@
 import { Redis } from "@upstash/redis";
+import { createClient } from "redis";
 import { config } from "dotenv";
 import crypto from "node:crypto";
 
@@ -6,13 +7,13 @@ config({ path: [".env.production.local", ".env.local", ".env"], override: false,
 
 export function validateRedisEnv(env) {
   const errors = [];
+  const hasUpstashRest = Boolean(env.UPSTASH_REDIS_REST_URL && env.UPSTASH_REDIS_REST_TOKEN);
+  const hasRedisTcp = Boolean(env.REDIS_URL || env.UPSTASH_REDIS_REST_REDIS_URL);
 
-  if (!env.UPSTASH_REDIS_REST_URL) {
-    errors.push("Missing UPSTASH_REDIS_REST_URL");
-  }
-
-  if (!env.UPSTASH_REDIS_REST_TOKEN) {
-    errors.push("Missing UPSTASH_REDIS_REST_TOKEN");
+  if (!hasUpstashRest && !hasRedisTcp) {
+    errors.push(
+      "Missing Redis configuration: set UPSTASH_REDIS_REST_URL with UPSTASH_REDIS_REST_TOKEN, or REDIS_URL"
+    );
   }
 
   if (env.UPSTASH_REDIS_REST_URL?.startsWith("redis://")) {
@@ -53,10 +54,7 @@ async function runCli() {
     return;
   }
 
-  const redis = new Redis({
-    url: process.env.UPSTASH_REDIS_REST_URL,
-    token: process.env.UPSTASH_REDIS_REST_TOKEN,
-  });
+  const redis = createRedisClient(process.env);
   const result = await verifyRedisIdempotency(redis, crypto.randomUUID());
 
   if (!result.ok) {
@@ -67,6 +65,40 @@ async function runCli() {
   }
 
   console.log("Redis check passed.");
+}
+
+function createRedisClient(env) {
+  if (env.UPSTASH_REDIS_REST_URL && env.UPSTASH_REDIS_REST_TOKEN) {
+    return new Redis({
+      url: env.UPSTASH_REDIS_REST_URL,
+      token: env.UPSTASH_REDIS_REST_TOKEN,
+    });
+  }
+
+  const client = createClient({
+    url: env.REDIS_URL || env.UPSTASH_REDIS_REST_REDIS_URL,
+  });
+  let connected = false;
+
+  return {
+    async set(key, value, options) {
+      if (!connected) {
+        await client.connect();
+        connected = true;
+      }
+      return client.set(key, value, {
+        NX: options.nx,
+        EX: options.ex,
+      });
+    },
+    async del(key) {
+      if (!connected) {
+        await client.connect();
+        connected = true;
+      }
+      return client.del(key);
+    },
+  };
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {
