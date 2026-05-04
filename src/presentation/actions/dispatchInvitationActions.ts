@@ -34,11 +34,11 @@ export async function dispatchInvitationsAction(
     };
   }
 
-  const tenant = await prisma.tenant.findFirst({ orderBy: { createdAt: 'asc' } });
+  const tenant = await resolveDashboardTenant();
   if (!tenant) {
     return {
       ok: false,
-      message: 'No hay tenant configurado para despachar invitaciones.',
+      message: 'Configura DASHBOARD_TENANT_ID para despachar en entornos multi-tenant.',
     };
   }
 
@@ -68,4 +68,22 @@ export async function dispatchInvitationsAction(
     message: `Despacho terminado: ${result.sent} enviadas, ${result.blocked} bloqueadas, ${result.failed} fallidas, ${result.skipped} omitidas.`,
     result,
   };
+}
+
+async function resolveDashboardTenant(): Promise<{ id: string } | null> {
+  const configuredTenantId = process.env.DASHBOARD_TENANT_ID;
+  if (configuredTenantId) {
+    return prisma.tenant.findUnique({
+      where: { id: configuredTenantId },
+      select: { id: true },
+    });
+  }
+
+  const tenants = await prisma.tenant.findMany({
+    orderBy: { createdAt: 'asc' },
+    select: { id: true },
+    take: 2,
+  });
+
+  return tenants.length === 1 ? tenants[0] : null;
 }

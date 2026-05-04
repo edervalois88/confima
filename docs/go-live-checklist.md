@@ -6,6 +6,7 @@ Configura PostgreSQL externo y usa la misma URL en local, Vercel e Inngest.
 
 ```bash
 DATABASE_URL="postgresql://USER:PASSWORD@HOST:PORT/DB?sslmode=require"
+DASHBOARD_TENANT_ID="uuid-del-tenant"
 npm run prisma:push
 ```
 

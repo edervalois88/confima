@@ -26,6 +26,7 @@ Variables minimas para Vercel:
 
 ```env
 DATABASE_URL=
+DASHBOARD_TENANT_ID=
 LLM_PROVIDER=auto
 GROQ_API_KEY=
 GROQ_MODEL=llama-3.3-70b-versatile
