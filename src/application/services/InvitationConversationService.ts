@@ -2,6 +2,7 @@ import { PrismaClient } from "@prisma/client";
 import { z } from "zod";
 import { ConversationMessage, ILLMService } from "@/application/ports/ILLMService";
 import { WhatsAppComplianceService } from "@/application/services/WhatsAppComplianceService";
+import { DomainError } from "@/domain/errors/DomainError";
 
 const IncomingConversationSchema = z.object({
   tenantId: z.string(),
@@ -278,10 +279,7 @@ export class InvitationConversationService {
     const existing = await this.prisma.tenant.findFirst({ where: { id: tenantId } }).catch(() => null);
     if (existing) return existing;
 
-    const firstTenant = await this.prisma.tenant.findFirst();
-    if (firstTenant) return firstTenant;
-
-    return this.prisma.tenant.create({ data: { name: "con Firma Demo" } });
+    throw new DomainError(`Tenant ${tenantId} no existe o no esta configurado para esta conversacion.`, "TENANT_NOT_FOUND");
   }
 
   private async ensureGuest(input: { tenantId: string; phone: string; guestName?: string }) {

@@ -1,4 +1,5 @@
 import { IVoiceProvider, VoiceSession } from "../../domain/ports/IVoiceProvider";
+import { InfrastructureCommunicationError } from "@/domain/errors/InfrastructureError";
 
 /**
  * @fileoverview Caso de Uso para la generación de tokens WebRTC seguros.
@@ -11,7 +12,7 @@ export class GetVoiceSessionTokenUseCase {
   public async execute(tenantId: string): Promise<VoiceSession> {
     // 1. Validación de Seguridad (Tenant Check)
     // En producción, aquí consultaríamos el AgentID configurado para este Tenant en la DB.
-    const agentId = process.env.RETELL_AGENT_ID || "default_wedding_agent";
+    const agentId = getRequiredEnv("RETELL_AGENT_ID");
 
     console.log(`[VOICE_USE_CASE] Iniciando mediación WebRTC para Tenant: ${tenantId}`);
 
@@ -21,4 +22,13 @@ export class GetVoiceSessionTokenUseCase {
     // 3. Retornar credenciales efímeras al cliente
     return session;
   }
+}
+
+function getRequiredEnv(name: string): string {
+  const value = process.env[name];
+  if (!value) {
+    throw new InfrastructureCommunicationError(`Missing required environment variable: ${name}`, "CONFIGURATION_ERROR");
+  }
+
+  return value;
 }

@@ -20,7 +20,20 @@ export class TenantResolutionService {
    * Mapea un WABA ID a un Tenant usando patrón Cache-Aside.
    */
   public static async resolveByWabaId(wabaId: string): Promise<TenantContext | null> {
-    const cacheKey = `tenant_ctx:${wabaId}`;
+    return this.resolveByWhatsAppIdentifiers({ wabaId });
+  }
+
+  /**
+   * Mapea identificadores de WhatsApp Cloud a un Tenant usando Cache-Aside.
+   */
+  public static async resolveByWhatsAppIdentifiers(input: {
+    wabaId?: string;
+    phoneNumberId?: string;
+  }): Promise<TenantContext | null> {
+    const identifiers = [input.wabaId, input.phoneNumberId].filter(isPresent);
+    if (identifiers.length === 0) return null;
+
+    const cacheKey = `tenant_ctx:${identifiers.join(":")}`;
     
     // 1. Check Redis (L1)
     const cached = await RedisCacheClient.get<TenantContext>(cacheKey);
@@ -28,7 +41,12 @@ export class TenantResolutionService {
 
     // 2. Query Prisma (L2)
     const tenant = await prisma.tenant.findFirst({
-      // Simulación: En producción buscaría por WABA ID configurado
+      where: {
+        OR: [
+          input.wabaId ? { whatsappBusinessAccountId: input.wabaId } : undefined,
+          input.phoneNumberId ? { whatsappPhoneNumberId: input.phoneNumberId } : undefined,
+        ].filter(isPresent),
+      },
       include: { subscription: true }
     });
 
@@ -45,6 +63,9 @@ export class TenantResolutionService {
 
     // 3. Fill Cache
     await RedisCacheClient.set(cacheKey, context, 3600);
+    await Promise.all(
+      identifiers.map((identifier) => RedisCacheClient.set(`tenant_ctx:${identifier}`, context, 3600))
+    );
     return context;
   }
 
@@ -54,4 +75,8 @@ export class TenantResolutionService {
   public static async isMessageDuplicate(messageId: string): Promise<boolean> {
     return await RedisCacheClient.isDuplicate(messageId);
   }
+}
+
+function isPresent<T>(value: T | undefined | null): value is T {
+  return value !== undefined && value !== null && value !== "";
 }

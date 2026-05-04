@@ -26,9 +26,9 @@ export const processWhatsappMessage = inngest.createFunction(
     });
 
     const conversationResult = await step.run("process-invitation-conversation", async () => {
-      const tenantContext = await TenantResolutionService.resolveByWabaId(wabaId || phoneNumberId);
+      const tenantContext = await TenantResolutionService.resolveByWhatsAppIdentifiers({ wabaId, phoneNumberId });
       if (!tenantContext) {
-        throw new Error(`No tenant configured for WhatsApp business account ${wabaId}.`);
+        throw new Error(`No tenant configured for WhatsApp identifiers ${wabaId}/${phoneNumberId}.`);
       }
 
       const llmService = LLMProviderFactory.getProvider();

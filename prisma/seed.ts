@@ -58,6 +58,8 @@ async function main() {
   const tenant = await prisma.tenant.create({
     data: {
       name: 'con Firma Demo',
+      whatsappBusinessAccountId: process.env.SEED_WHATSAPP_WABA_ID || process.env.WHATSAPP_BUSINESS_ACCOUNT_ID || 'WABA_TEST_123',
+      whatsappPhoneNumberId: process.env.SEED_WHATSAPP_PHONE_NUMBER_ID || process.env.WHATSAPP_PHONE_NUMBER_ID || 'PHONE_NUMBER_TEST_123',
       subscription: {
         create: {
           canUploadExcel: true,

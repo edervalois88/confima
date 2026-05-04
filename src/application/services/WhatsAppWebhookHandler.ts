@@ -4,6 +4,8 @@ import { IDocumentExtractionService } from "../../domain/ports/PlanningPorts";
 import { HumanMessage } from "@langchain/core/messages";
 import { WhatsAppWebhookSchema } from "../../infrastructure/schemas/WhatsAppSchemas";
 import { RedisCacheClient } from "../../infrastructure/cache/RedisClient";
+import { TenantResolutionService } from "@/application/services/TenantResolutionService";
+import { DomainError } from "@/domain/errors/DomainError";
 
 /**
  * @fileoverview Orquestador asíncrono para eventos de WhatsApp Multimodales.
@@ -29,6 +31,7 @@ export class WhatsAppWebhookHandler {
     }
 
     const value = validation.data.entry?.[0]?.changes?.[0]?.value;
+    const entry = validation.data.entry?.[0];
     const message = value?.messages?.[0];
     if (!message) return;
 
@@ -67,11 +70,22 @@ export class WhatsAppWebhookHandler {
       }
 
       console.log(`[WA_HANDLER] Procesando intención de ${from} (MsgID: ${messageId})`);
+      const tenantContext = await TenantResolutionService.resolveByWhatsAppIdentifiers({
+        wabaId: entry?.id,
+        phoneNumberId: value?.metadata.phone_number_id,
+      });
+
+      if (!tenantContext) {
+        throw new DomainError(
+          `No tenant configured for WhatsApp identifiers ${entry?.id}/${value?.metadata.phone_number_id}.`,
+          "TENANT_NOT_FOUND"
+        );
+      }
 
       // 4. Invocar Cerebro Multi-Agente (LangGraph)
       const stream = this.orchestrator.streamPlanning({
         messages: [new HumanMessage(content)],
-        tenantId: "WHATSAPP_USER",
+        tenantId: tenantContext.tenantId,
         correlationId: `WA_${messageId}`
       });
 

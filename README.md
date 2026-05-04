@@ -32,12 +32,15 @@ GROQ_MODEL=llama-3.3-70b-versatile
 GOOGLE_AI_API_KEY=
 GOOGLE_AI_MODEL=gemini-flash-latest
 WHATSAPP_PHONE_NUMBER_ID=
+WHATSAPP_BUSINESS_ACCOUNT_ID=
 WHATSAPP_ACCESS_TOKEN=
 WHATSAPP_VERIFY_TOKEN=
 WHATSAPP_APP_SECRET=
 WHATSAPP_INVITATION_TEMPLATE_NAME=confirma_wedding_invitation_v1
 WHATSAPP_TEMPLATE_LANGUAGE=es_MX
 ENFORCE_WHATSAPP_OPT_IN=true
+SEED_WHATSAPP_WABA_ID=
+SEED_WHATSAPP_PHONE_NUMBER_ID=
 UPSTASH_REDIS_REST_URL=
 UPSTASH_REDIS_REST_TOKEN=
 ```
@@ -68,7 +71,9 @@ Para WhatsApp Cloud API, configura en Meta el webhook publico de Vercel:
 https://TU-DOMINIO.vercel.app/api/webhooks/whatsapp
 ```
 
-Usa el mismo `WHATSAPP_VERIFY_TOKEN` en Meta y en Vercel.
+Usa el mismo `WHATSAPP_VERIFY_TOKEN` en Meta y en Vercel. El valor
+`WHATSAPP_BUSINESS_ACCOUNT_ID` debe coincidir con el `entry.id` que Meta
+envía al webhook; se usa para resolver el tenant correcto.
 
 ## Checklist de salida a produccion
 
