@@ -48,7 +48,7 @@ export default function AnalyticsDashboard() {
                   <span className="text-emerald-400">{95 - i * 5}% Positivo</span>
                 </div>
                 <div className="h-2 bg-slate-700 rounded-full overflow-hidden">
-                  <div className="h-full bg-emerald-500" style={{ width: `\${95 - i * 5}%` }}></div>
+                  <div className="h-full bg-emerald-500" style={{ width: `${95 - i * 5}%` }}></div>
                 </div>
               </div>
             ))}

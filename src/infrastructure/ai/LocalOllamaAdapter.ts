@@ -32,8 +32,9 @@ export class LocalOllamaAdapter implements ILLMService {
 
       const data = OllamaGenerateResponseSchema.parse(await response.json());
       return data.response || "No se recibio respuesta del modelo local.";
-    } catch (error) {
-      console.error("[OLLAMA_ERROR] Asegurate de que Ollama este corriendo (ollama serve)");
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : "unknown";
+      console.error("[OLLAMA_ERROR] Asegurate de que Ollama este corriendo (ollama serve)", message);
       return "Error: No se pudo conectar con el modelo local.";
     }
   }

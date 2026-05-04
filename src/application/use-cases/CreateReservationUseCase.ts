@@ -1,4 +1,4 @@
-import { Reservation, ReservationStatus } from '@/domain/entities/Reservation';
+import { Reservation } from '@/domain/entities/Reservation';
 import { IReservationRepository } from '../ports/IReservationRepository';
 import { ILLMService } from '../ports/ILLMService';
 import { PredictionRiskService } from '@/domain/services/PredictionRiskService';

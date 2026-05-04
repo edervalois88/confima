@@ -10,7 +10,7 @@ export class SentimentAnalysisService implements ISentimentAnalysisService {
   constructor(private readonly aiService: VercelAIService) {}
 
   public async analyze(text: string): Promise<SentimentResult> {
-    console.log(`[SENTIMENT_SERVICE] Analizando feedback: \${text.substring(0, 30)}...`);
+    console.log(`[SENTIMENT_SERVICE] Analizando feedback: ${text.substring(0, 30)}...`);
 
     // Prompt de extracción estructurada (Few-Shot Prompting)
     const prompt = `Analiza el siguiente comentario de un invitado de boda y devuelve un JSON con:
@@ -19,7 +19,8 @@ export class SentimentAnalysisService implements ISentimentAnalysisService {
     - category: CATERING | MUSIC | WEATHER | LOGISTICS | OTHER
     - evidence: una oración que justifique la categoría.
     
-    Texto: "\${text}"`;
+    Texto: "${text}"`;
+    console.debug("[SENTIMENT_PROMPT]", prompt);
 
     // Simulación de respuesta estructurada (En producción usaríamos response_format: { type: 'json_object' })
     return {

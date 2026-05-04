@@ -14,9 +14,6 @@ import { logger } from "@/infrastructure/telemetry/logger";
  * 4. Fuerte Tipado (TypeScript Strict, Zod Validation, Zero "any").
  */
 
-const WHATSAPP_VERIFY_TOKEN = process.env.WHATSAPP_VERIFY_TOKEN || "reservAItion_verif_123";
-const WHATSAPP_APP_SECRET = process.env.WHATSAPP_APP_SECRET || "meta_test_secret"; // Configurado en Meta Dev Portal
-
 // Validamos el formato del Payload de Meta para evitar errores en Inngest
 const WhatsAppPayloadSchema = z.object({
   object: z.literal("whatsapp_business_account"),
@@ -53,8 +50,6 @@ const WhatsAppPayloadSchema = z.object({
   )
 });
 
-type WhatsAppPayload = z.infer<typeof WhatsAppPayloadSchema>;
-
 const idempotencyCache = new Set<string>();
 
 /**
@@ -65,8 +60,9 @@ export async function GET(request: NextRequest) {
   const mode = searchParams.get("hub.mode");
   const token = searchParams.get("hub.verify_token");
   const challenge = searchParams.get("hub.challenge");
+  const verifyToken = getRequiredEnv("WHATSAPP_VERIFY_TOKEN");
 
-  if (mode === "subscribe" && token === WHATSAPP_VERIFY_TOKEN) {
+  if (mode === "subscribe" && token === verifyToken) {
     logger.info("Handshake de Meta exitoso.", {
       component: "WhatsAppWebhookRoute",
       operation: "GET",
@@ -86,6 +82,7 @@ export async function POST(request: NextRequest) {
     // Evita la corrupción de bytes para validar la firma HMAC
     const rawBody = await request.text();
     const signature = request.headers.get("x-hub-signature-256");
+    const appSecret = getRequiredEnv("WHATSAPP_APP_SECRET");
 
     if (!signature) {
       logger.warn("Peticion de WhatsApp rechazada: sin firma.", {
@@ -97,7 +94,7 @@ export async function POST(request: NextRequest) {
 
     // Firma Expected basada en app_secret de Meta
     const expectedSignature = `sha256=${crypto
-      .createHmac("sha256", WHATSAPP_APP_SECRET)
+      .createHmac("sha256", appSecret)
       .update(rawBody)
       .digest("hex")}`;
 
@@ -133,8 +130,10 @@ export async function POST(request: NextRequest) {
     }
 
     const payload = payloadResult.data;
-    const message = payload.entry[0].changes[0].value.messages?.[0];
-    const contact = payload.entry[0].changes[0].value.contacts?.[0];
+    const entry = payload.entry[0];
+    const value = entry.changes[0].value;
+    const message = value.messages?.[0];
+    const contact = value.contacts?.[0];
 
     if (!message || !contact) {
       // Si no es un mensaje (ej. actualización de estado), retornamos SLA 200
@@ -161,7 +160,9 @@ export async function POST(request: NextRequest) {
         phone: message.from,
         guestName: contact.profile.name,
         text: message.text?.body || "",
-        timestamp: message.timestamp
+        timestamp: message.timestamp,
+        wabaId: entry.id,
+        phoneNumberId: value.metadata.phone_number_id,
       }
     });
 
@@ -177,10 +178,20 @@ export async function POST(request: NextRequest) {
     logger.error("Error critico procesando webhook de WhatsApp.", {
       component: "WhatsAppWebhookRoute",
       operation: "POST",
+      errorMessage: error instanceof Error ? error.message : "unknown",
     });
     // Para Meta, si es un error nuestro devolvemos 500 para posible reintento
     return new NextResponse("Internal Server Error", { status: 500 });
   }
+}
+
+function getRequiredEnv(name: string): string {
+  const value = process.env[name];
+  if (!value) {
+    throw new Error(`Missing required environment variable: ${name}`);
+  }
+
+  return value;
 }
 
 async function isDuplicateWebhookMessage(wamid: string): Promise<boolean> {

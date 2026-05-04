@@ -13,7 +13,7 @@ export class GetVoiceSessionTokenUseCase {
     // En producción, aquí consultaríamos el AgentID configurado para este Tenant en la DB.
     const agentId = process.env.RETELL_AGENT_ID || "default_wedding_agent";
 
-    console.log(`[VOICE_USE_CASE] Iniciando mediación WebRTC para Tenant: \${tenantId}`);
+    console.log(`[VOICE_USE_CASE] Iniciando mediación WebRTC para Tenant: ${tenantId}`);
 
     // 2. Solicitar Sesión al Proveedor (Anillo 4)
     const session = await this.voiceProvider.createWebRTCSession(agentId);

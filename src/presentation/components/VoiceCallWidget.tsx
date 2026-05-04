@@ -21,7 +21,7 @@ export default function VoiceCallWidget({ tenantId }: { tenantId: string }) {
       const session = await getVoiceSessionToken(tenantId);
       
       // 2. Inicializar SDK de Retell (Simulado en este entorno)
-      console.log(`[VOICE_WIDGET] Conectando a Retell con Token: \${session.accessToken}`);
+      console.log(`[VOICE_WIDGET] Conectando a Retell con Token: ${session.accessToken}`);
       
       setCallStatus("Llamada en curso...");
       
@@ -30,7 +30,7 @@ export default function VoiceCallWidget({ tenantId }: { tenantId: string }) {
         setCallStatus("Sincronizando RSVP verbal...");
       }, 3000);
 
-    } catch (error: any) {
+    } catch {
       setCallStatus("Error de conexión.");
       setIsCalling(false);
     }

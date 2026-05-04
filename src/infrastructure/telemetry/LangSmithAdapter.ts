@@ -15,29 +15,31 @@ export class LangSmithAdapter {
   /**
    * Registra el inicio de una traza para un agente o nodo.
    */
-  public static logNodeExecution(nodeName: string, metadata: TraceMetadata, inputs: any) {
+  public static logNodeExecution(nodeName: string, metadata: TraceMetadata, inputs: unknown) {
     if (!this.isLoggingEnabled) return;
 
-    console.log(`[LANGSMITH_TRACE] Node: \${nodeName} | ID: \${metadata.correlationId} | Tenant: \${metadata.tenantId}`);
+    console.log(`[LANGSMITH_TRACE] Node: ${nodeName} | ID: ${metadata.correlationId} | Tenant: ${metadata.tenantId}`);
     console.debug(`[LANGSMITH_INPUTS]`, JSON.stringify(inputs));
   }
 
   /**
    * Registra la salida y el uso de tokens (Telemetría de Costos).
    */
-  public static logNodeOutput(nodeName: string, output: any, tokens: number = 0) {
+  public static logNodeOutput(nodeName: string, output: unknown, tokens: number = 0) {
     if (!this.isLoggingEnabled) return;
 
-    console.log(`[LANGSMITH_OUTPUT] Node: \${nodeName} | Tokens: \${tokens}`);
+    console.log(`[LANGSMITH_OUTPUT] Node: ${nodeName} | Tokens: ${tokens}`);
+    console.debug(`[LANGSMITH_OUTPUT_PAYLOAD]`, JSON.stringify(output));
     // En producción aquí se enviaría la traza a la API de LangSmith
   }
 
   /**
    * Captura el razonamiento (Chain of Thought) de una llamada a herramienta.
    */
-  public static logToolCall(toolName: string, rationale: string, params: any) {
+  public static logToolCall(toolName: string, rationale: string, params: unknown) {
     if (!this.isLoggingEnabled) return;
 
-    console.info(`[LANGSMITH_TOOL] Tool: \${toolName} | Rationale: \${rationale}`);
+    console.info(`[LANGSMITH_TOOL] Tool: ${toolName} | Rationale: ${rationale}`);
+    console.debug(`[LANGSMITH_TOOL_PARAMS]`, JSON.stringify(params));
   }
 }

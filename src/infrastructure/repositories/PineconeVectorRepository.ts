@@ -14,7 +14,7 @@ export class PineconeVectorRepository {
    * Ejecuta búsqueda de similitud del coseno.
    */
   public async findSimilarVendors(vector: number[], topK: number = 5): Promise<string[]> {
-    console.log(`[PINECONE] Buscando top \${topK} proveedores mediante similitud del coseno.`);
+    console.log(`[PINECONE] Buscando top ${topK} proveedores mediante similitud del coseno.`);
     
     // Simulación de búsqueda vectorial
     // En producción: client.index(this.indexName).query({ vector, topK })
@@ -26,7 +26,7 @@ export class PineconeVectorRepository {
    * Anillo 4: Infraestructura.
    */
   public async updateVendorRating(vendorId: string, ratingDelta: number): Promise<void> {
-    console.log(`[PINECONE] Ajustando rating del proveedor \${vendorId} en \${ratingDelta}.`);
+    console.log(`[PINECONE] Ajustando rating del proveedor ${vendorId} en ${ratingDelta}.`);
     
     // En producción: client.index(this.indexName).update({ id: vendorId, metadata: { rating: ... } })
   }

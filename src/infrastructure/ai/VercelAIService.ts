@@ -7,6 +7,8 @@ import { ConversationMessage } from "@/application/ports/ILLMService";
 
 export class VercelAIService {
   public async processIntent(prompt: string, messages: ConversationMessage[]): Promise<string> {
+    console.debug("[VERCEL_AI_CONTEXT]", { promptLength: prompt.length, messages: messages.length });
+
     // 1. Bypass para pruebas de estrés y ahorro de tokens
     if (process.env.MOCK_AI_MODE === 'true') {
       console.log("[MOCK_AI] Saltando llamada a LLM para ahorro de tokens.");

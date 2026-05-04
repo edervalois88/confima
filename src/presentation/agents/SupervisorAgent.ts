@@ -7,7 +7,7 @@ import { ILLMService } from '@/application/ports/ILLMService';
  * Anillo 3: Adaptador de presentación para la lógica cognitiva.
  */
 
-const AgentStateSchema = z.object({
+export const AgentStateSchema = z.object({
   messages: z.array(z.object({
     role: z.enum(['user', 'assistant', 'system']),
     content: z.string()
@@ -49,7 +49,7 @@ export class SupervisorAgent {
       return { next: response.trim() };
     });
 
-    workflow.addNode('BOOKING_SPECIALIST', async (state) => {
+    workflow.addNode('BOOKING_SPECIALIST', async () => {
         // En un sistema real, aquí llamaríamos a otro grafo o herramienta
         return { messages: [{ role: 'assistant', content: "Derivando al especialista de confirmaciones..." }], next: 'END' };
     });

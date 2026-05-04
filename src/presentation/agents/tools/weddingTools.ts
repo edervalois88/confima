@@ -1,7 +1,6 @@
 import { z } from 'zod';
 import { tool } from 'ai';
 import { SeatingOptimizerService, GuestGroup } from '@/domain/services/SeatingOptimizerService';
-import { OpenWeatherProvider } from '@/infrastructure/weather/OpenWeatherProvider';
 
 /**
  * @fileoverview Herramientas atómicas para el Agente de Gestión de Bodas.
@@ -59,7 +58,7 @@ export const processRSVPTool = tool({
     console.log(`[RSVP] Actualizando invitado ${guestId}: ${willAttend ? 'Asiste' : 'No asiste'} (+${plusOneCount})`);
     
     // 2. DISPARADOR REALTIME: Notificación al Dashboard del Tenant (Anillo 4)
-    console.log(`[SUPABASE_REALTIME] Emitiendo evento 'RSVP_UPDATED' para invitado \${guestId}`);
+    console.log(`[SUPABASE_REALTIME] Emitiendo evento 'RSVP_UPDATED' para invitado ${guestId}`);
     
     return { success: true, message: `RSVP procesado para el invitado ${guestId}.` };
   }
@@ -75,7 +74,7 @@ export const captureDietaryPreferencesTool = tool({
     console.log(`[DIETARY] Guardando restricciones para ${guestId}: ${restrictions.join(', ')}`);
     
     // 3. DISPARADOR REALTIME: Sincronización omnicanal inmediata
-    console.log(`[SUPABASE_REALTIME] Emitiendo evento 'DIETARY_UPDATED' para invitado \${guestId}`);
+    console.log(`[SUPABASE_REALTIME] Emitiendo evento 'DIETARY_UPDATED' para invitado ${guestId}`);
     
     return { success: true, message: "Preferencias dietéticas guardadas correctamente." };
   }
@@ -89,6 +88,8 @@ export const answerWeddingFAQTool = tool({
   description: "Responde dudas sobre el evento (código de vestimenta, horarios, ubicación) usando RAG.",
   parameters: FAQInputSchema,
   execute: async ({ query }) => {
+    console.info(`[FAQ] Consulta recibida: ${query}`);
+
     // Simulación de búsqueda semántica en el dominio de conocimiento
     return { 
       answer: `Contexto del evento: El código de vestimenta es Formal/Etiqueta. La ceremonia inicia a las 18:00.` 
@@ -118,10 +119,10 @@ export const optimizeSeatingChartTool = tool({
         assignment,
         message: `Se han optimizado ${assignment.length} mesas con éxito.` 
       };
-    } catch (error: any) {
+    } catch (error: unknown) {
       return { 
         status: "ERROR", 
-        message: error.message 
+        message: error instanceof Error ? error.message : "Error desconocido"
       };
     }
   }
@@ -142,7 +143,7 @@ export const findVendorsByAestheticTool = tool({
   description: "Busca proveedores cuya estética visual coincida con las fotos de inspiración proporcionadas.",
   parameters: AestheticSearchSchema,
   execute: async ({ imageUrls, category }) => {
-    console.log(`[TOOL] Búsqueda estética iniciada para \${imageUrls.length} imágenes. Filtro: \${category || 'Ninguno'}`);
+    console.log(`[TOOL] Búsqueda estética iniciada para ${imageUrls.length} imágenes. Filtro: ${category || 'Ninguno'}`);
     
     // Aquí se inyectaría el AestheticMatchingAdapter (Anillo 4)
     // Por simplicidad en la demo, devolvemos un estado de éxito
@@ -172,7 +173,7 @@ export const auditVendorContractTool = tool({
   description: "Audita un contrato de proveedor para encontrar riesgos críticos (anticipos > 50%, falta de políticas de cancelación, responsabilidad extrema).",
   parameters: ContractAuditSchema,
   execute: async ({ contractText }) => {
-    console.log(`[TOOL] Iniciando auditoría de cumplimiento legal sobre documento (\${contractText.length} chars).`);
+    console.log(`[TOOL] Iniciando auditoría de cumplimiento legal sobre documento (${contractText.length} chars).`);
     
     // El LegalComplianceAdapter (Anillo 4) se encargará del análisis determinista vía generateObject
     return {
@@ -189,6 +190,4 @@ export const auditVendorContractTool = tool({
     };
   }
 });
-
-
 

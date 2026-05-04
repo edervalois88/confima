@@ -23,9 +23,9 @@ export class LLMJudgeService {
     groundTruth: string
   ): Promise<EvalResult> {
     const prompt = `Actúa como un Juez de Calidad de IA.
-    ENTRADA DEL USUARIO: "\${input}"
-    RESPUESTA DEL AGENTE: "\${agentResponse}"
-    VERDAD FUNDAMENTAL: "\${groundTruth}"
+    ENTRADA DEL USUARIO: "${input}"
+    RESPUESTA DEL AGENTE: "${agentResponse}"
+    VERDAD FUNDAMENTAL: "${groundTruth}"
 
     Califica la respuesta del agente del 0 al 100 basándote en:
     1. Fidelidad: ¿Menciona todos los datos de la verdad fundamental?
@@ -42,7 +42,7 @@ export class LLMJudgeService {
         rationale: result.rationale,
         passed: result.score >= 95
       };
-    } catch (e) {
+    } catch {
       return { score: 0, rationale: "Fallo en el formato del juez.", passed: false };
     }
   }

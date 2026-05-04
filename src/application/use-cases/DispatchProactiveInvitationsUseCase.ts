@@ -9,7 +9,7 @@ export class DispatchProactiveInvitationsUseCase {
   constructor(private readonly jobClient: IBackgroundJobClient) {}
 
   public async execute(tenantId: string, weddingDate: string): Promise<void> {
-    console.log(`[DISPATCH_PROACTIVE] Iniciando despacho para Tenant \${tenantId} - Fecha: \${weddingDate}`);
+    console.log(`[DISPATCH_PROACTIVE] Iniciando despacho para Tenant ${tenantId} - Fecha: ${weddingDate}`);
 
     // 1. Obtener lista de invitados (Simulación - En producción vía PrismaRepository)
     const guests = [
@@ -27,6 +27,6 @@ export class DispatchProactiveInvitationsUseCase {
       }, 0); // El delay real se maneja dentro del job con sleepUntil
     }
 
-    console.log(`[DISPATCH_PROACTIVE] Finalizado. \${guests.length} trabajos encolados.`);
+    console.log(`[DISPATCH_PROACTIVE] Finalizado. ${guests.length} trabajos encolados.`);
   }
 }

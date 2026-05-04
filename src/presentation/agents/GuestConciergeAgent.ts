@@ -7,7 +7,7 @@ import { ILLMService } from '@/application/ports/ILLMService';
  * Anillo 3: Presentación / Orquestación Multi-Tenant.
  */
 
-const ConciergeStateSchema = z.object({
+export const ConciergeStateSchema = z.object({
   messages: z.array(z.object({
     role: z.enum(['user', 'assistant', 'system']),
     content: z.string()
@@ -61,17 +61,17 @@ export class GuestConciergeAgent {
     });
 
 
-    workflow.addNode('logisticsNode', async (state) => {
+    workflow.addNode('logisticsNode', async () => {
       return { messages: [{ role: 'assistant', content: "Aquí tienes la ubicación del evento." }] };
     });
 
-    workflow.addNode('handoffNode', async (state) => {
+    workflow.addNode('handoffNode', async () => {
       console.log("[HANDOFF] Transfiriendo conversación a operador humano.");
       return { messages: [{ role: 'assistant', content: "Mmm, esa es una excelente pregunta que requiere atención personalizada. Dame un momento para contactar a los anfitriones por ti." }] };
     });
 
 
-    workflow.addNode('weatherNode', async (state) => {
+    workflow.addNode('weatherNode', async () => {
       return { messages: [{ role: 'assistant', content: "El pronóstico para el día de la boda es de 24°C, cielo despejado." }] };
     });
 

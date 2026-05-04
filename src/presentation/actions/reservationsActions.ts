@@ -4,7 +4,6 @@ import { PrismaReservationRepository } from '@/infrastructure/database/PrismaRes
 import { CreateReservationUseCase } from '@/application/use-cases/CreateReservationUseCase';
 import { VercelAIService } from '@/infrastructure/ai/VercelAIService';
 import { revalidatePath } from 'next/cache';
-import { redirect } from 'next/navigation';
 
 /**
  * @fileoverview Server Actions para la gestión de reservas.

@@ -11,6 +11,10 @@ const WhatsAppWebhookSchema = z.object({
     id: z.string(),
     changes: z.array(z.object({
       value: z.object({
+        metadata: z.object({
+          display_phone_number: z.string().optional(),
+          phone_number_id: z.string(),
+        }),
         contacts: z.array(z.object({
           profile: z.object({ name: z.string() }),
           wa_id: z.string(),
@@ -44,7 +48,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ status: "received" });
     }
 
-    const value = payload.data.entry[0]?.changes[0]?.value;
+    const entry = payload.data.entry[0];
+    const value = entry?.changes[0]?.value;
     const message = value?.messages?.[0];
     const contact = value?.contacts?.[0];
 
@@ -68,6 +73,8 @@ export async function POST(req: NextRequest) {
         guestName: contact.profile.name,
         text: message.text?.body || "",
         timestamp: message.timestamp || `${Date.now()}`,
+        wabaId: entry.id,
+        phoneNumberId: value.metadata.phone_number_id,
       },
     });
 

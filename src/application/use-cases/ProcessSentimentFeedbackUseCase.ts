@@ -12,7 +12,7 @@ export class ProcessSentimentFeedbackUseCase {
   ) {}
 
   public async execute(text: string, vendorId: string): Promise<void> {
-    console.log(`[PROCESS_FEEDBACK] Procesando comentario para el proveedor: \${vendorId}`);
+    console.log(`[PROCESS_FEEDBACK] Procesando comentario para el proveedor: ${vendorId}`);
 
     // 1. Análisis de Sentimiento Semántico
     const result = await this.sentimentService.analyze(text);
@@ -23,6 +23,6 @@ export class ProcessSentimentFeedbackUseCase {
       await this.ratingService.updateRating(vendorId, result);
     }
 
-    console.log(`[PROCESS_FEEDBACK] Ciclo de aprendizaje completado para \${vendorId}`);
+    console.log(`[PROCESS_FEEDBACK] Ciclo de aprendizaje completado para ${vendorId}`);
   }
 }

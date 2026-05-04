@@ -52,8 +52,8 @@ export class WeddingPlanningOrchestrator {
         },
         summary: { reducer: (x: string, y: string) => y ?? x, default: () => "" },
         nextModule: { reducer: (x: PlanningState["nextModule"], y: PlanningState["nextModule"]) => y ?? x, default: () => null },
-        correlationId: { reducer: (x: string, y: string) => x, default: () => "" },
-        tenantId: { reducer: (x: string, y: string) => x, default: () => "" },
+        correlationId: { reducer: (x: string) => x, default: () => "" },
+        tenantId: { reducer: (x: string) => x, default: () => "" },
         completedTasks: { reducer: (x: string[], y: string[]) => [...new Set([...x, ...y])], default: () => [] },
         financialContext: { reducer: (x: PlanningState["financialContext"], y: Partial<PlanningState["financialContext"]>) => ({ ...x, ...y }), default: () => ({ allocations: [] }) },
         aestheticContext: { reducer: (x: PlanningState["aestheticContext"], y: Partial<PlanningState["aestheticContext"]>) => ({ ...x, ...y }), default: () => ({ stylePreferences: [] }) },
@@ -133,7 +133,7 @@ export class WeddingPlanningOrchestrator {
     });
 
     // ...) Nodo Vendor
-    workflow.addNode("vendor_agent", async (state: PlanningState) => {
+    workflow.addNode("vendor_agent", async () => {
       const vendors = await this.vendorRepo.searchVendors({ maxPrice: 20000 });
       return { 
         messages: [new AIMessage("Proveedores alineados encontrados.")],
@@ -144,7 +144,7 @@ export class WeddingPlanningOrchestrator {
     });
 
     // ...) Nodo Compliance
-    workflow.addNode("compliance_agent", async (state: PlanningState) => {
+    workflow.addNode("compliance_agent", async () => {
       return { 
         messages: [new AIMessage("Auditoria legal completada.")],
         completedTasks: ["compliance"],
@@ -167,7 +167,7 @@ export class WeddingPlanningOrchestrator {
     });
 
     // 6. Nodo Finalizer (Síntesis)
-    workflow.addNode("finalizer", async (state: PlanningState) => {
+    workflow.addNode("finalizer", async () => {
       return { 
         messages: [new AIMessage("Planificacion completada.")],
         nextModule: null 
@@ -188,19 +188,19 @@ export class WeddingPlanningOrchestrator {
     });
 
     // --- PATRÓN FAN-OUT ---
-    workflow.addNode("contingency_manager", async (state: PlanningState) => {
+    workflow.addNode("contingency_manager", async () => {
       return { nextModule: "contingency_manager" as const }; // Simulado
     });
 
-    workflow.addNode("vendor_voice_node", async (state: PlanningState) => {
+    workflow.addNode("vendor_voice_node", async () => {
       return { messages: [new AIMessage("Llamadas completadas.")] };
     });
 
-    workflow.addNode("guest_broadcast_node", async (state: PlanningState) => {
+    workflow.addNode("guest_broadcast_node", async () => {
       return { messages: [new AIMessage("Broadcast enviado.")] };
     });
 
-    workflow.addNode("staff_alert_node", async (state: PlanningState) => {
+    workflow.addNode("staff_alert_node", async () => {
       return { messages: [new AIMessage("Alertas enviadas.")] };
     });
 

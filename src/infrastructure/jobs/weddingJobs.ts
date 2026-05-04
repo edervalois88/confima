@@ -1,7 +1,5 @@
 import { inngest } from "../../infrastructure/jobs/InngestClient";
 import { OpenWeatherProvider } from "../../infrastructure/weather/OpenWeatherProvider";
-import { GuestConciergeAgent } from "../../presentation/agents/GuestConciergeAgent";
-import { VercelAIService } from "../../infrastructure/ai/VercelAIService";
 
 /**
  * @fileoverview Definición de Funciones de Inngest (Background Jobs).
@@ -32,19 +30,19 @@ export const proactiveConciergeFunc = inngest.createFunction(
     // 3. Envío Outbound vía WhatsApp Template (Meta Compliance)
     // Se utiliza una plantilla con botones para abrir la ventana de 24h
     await step.run("send-whatsapp-template", async () => {
-      console.log(`[WHATSAPP_PROACTIVE] Enviando plantilla 'wedding_proactive_invite' a ${phone}`);
+      console.log(`[WHATSAPP_PROACTIVE] Tenant ${tenantId}: enviando plantilla 'wedding_proactive_invite' a ${phone}`);
       console.log(`[TEMPLATE_PARAMS] Clima: ${logistics.temp}°C, Ubicacion: ${logistics.location}`);
       
       // En producción: messagingProvider.sendTemplateMessage(phone, {
       //   name: "wedding_proactive_invite",
       //   components: [
-      //     { type: "body", parameters: [{ type: "text", text: logistics.location }, { type: "text", text: `\${logistics.temp}°C` }] },
+      //     { type: "body", parameters: [{ type: "text", text: logistics.location }, { type: "text", text: `${logistics.temp}°C` }] },
       //     { type: "button", sub_type: "quick_reply", index: 0, parameters: [{ type: "payload", payload: "WEATHER_QUERY" }] }
       //   ]
       // });
     });
 
-    return { status: "PROACTIVE_SENT", guestId };
+    return { status: "PROACTIVE_SENT", tenantId, guestId };
   }
 );
 
@@ -105,13 +103,12 @@ export const postEventFeedbackFunc = inngest.createFunction(
 
     for (const guest of attendees) {
       await step.run(`send-whatsapp-feedback-${guest.id}`, async () => {
-        console.log(`[POST_EVENT] Solicitando feedback a ${guest.name} via WhatsApp.`);
+        console.log(`[POST_EVENT] Tenant ${tenantId}: solicitando feedback a ${guest.name} via WhatsApp.`);
         // Aquí se usaría el IMessagingProvider para enviar la plantilla 'event_feedback'
       });
     }
 
-    return { status: "FEEDBACK_REQUESTS_ENQUEUED", total: attendees.length };
+    return { status: "FEEDBACK_REQUESTS_ENQUEUED", tenantId, total: attendees.length };
   }
 );
-
 

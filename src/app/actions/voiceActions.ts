@@ -15,7 +15,7 @@ const voiceAdapter = new RetellVoiceAdapter();
  * Implementa la arquitectura mediada por seguridad.
  */
 export async function getVoiceSessionToken(tenantId: string): Promise<VoiceSession> {
-  console.log(`[VOICE_ACTION] Solicitando token de voz para Tenant: \${tenantId}`);
+  console.log(`[VOICE_ACTION] Solicitando token de voz para Tenant: ${tenantId}`);
   
   // 1. Validación de Sesión y Feature Flags (Simulación)
   // En producción utilizaríamos auth() de NextAuth y consultoría a Prisma
@@ -33,11 +33,12 @@ export async function getVoiceSessionToken(tenantId: string): Promise<VoiceSessi
     const session = await voiceAdapter.createWebRTCSession(agentId);
     
     // 4. Registro de auditoría
-    console.info(`[VOICE_ACTION] Sesión WebRTC creada exitosamente (CallID: \${session.callId})`);
+    console.info(`[VOICE_ACTION] Sesión WebRTC creada exitosamente (CallID: ${session.callId})`);
     
     return session;
-  } catch (error: any) {
-    console.error("[VOICE_ACTION_ERROR]", error.message);
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : "unknown";
+    console.error("[VOICE_ACTION_ERROR]", message);
     throw new Error("No hemos podido establecer la conexión con el servidor de voz. Reintente en unos momentos.");
   }
 }

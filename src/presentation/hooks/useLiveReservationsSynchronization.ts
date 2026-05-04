@@ -29,8 +29,7 @@ export function useLiveReservationsSynchronization() {
         },
         (payload) => {
           console.log('Cambio detectado en tiempo real:', payload);
-          // Aquí implementaríamos la lógica de actualización del estado local
-          // para que la UI se hidrate sin recargar.
+          setReservations((current) => [payload, ...current].slice(0, 50));
         }
       )
       .subscribe();

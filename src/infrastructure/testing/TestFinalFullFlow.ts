@@ -28,7 +28,7 @@ async function runFinalSimulation() {
 
   const orchestrator = new WeddingPlanningOrchestrator(budgetService, vendorRepo);
 
-  const correlationId = `AUDIT_\${Date.now()}`;
+  const correlationId = `AUDIT_${Date.now()}`;
   const prompt = `Hola! Tenemos un presupuesto de $60,000. 
   Aquí tienes nuestro moodboard: https://pinterest.com/boda-vibe. 
   Por favor, audita este contrato del fotógrafo: "Retainer del 55%, no reembolsable en caso de cancelación por clima."`;

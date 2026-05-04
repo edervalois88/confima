@@ -20,7 +20,7 @@ export class WhatsAppWebhookHandler {
   /**
    * Procesa la carga útil multimodal recibida de Meta (Texto / Imagen / Documento / Interactivos).
    */
-  public async handleWebhookEvent(rawPayload: any) {
+  public async handleWebhookEvent(rawPayload: unknown) {
     // 1. Validación Estricta con Zod
     const validation = WhatsAppWebhookSchema.safeParse(rawPayload);
     if (!validation.success) {
@@ -39,7 +39,7 @@ export class WhatsAppWebhookHandler {
     // 2. Control de Idempotencia (Redis)
     const isDuplicate = await RedisCacheClient.isDuplicate(messageId);
     if (isDuplicate) {
-      console.warn(`[WA_WEBHOOK] Mensaje duplicado detectado (MsgID: \${messageId}). Ignorando.`);
+      console.warn(`[WA_WEBHOOK] Mensaje duplicado detectado (MsgID: ${messageId}). Ignorando.`);
       return;
     }
 
@@ -54,25 +54,25 @@ export class WhatsAppWebhookHandler {
           const title = interactive.button_reply?.title;
           
           // Re-enganche Cognitivo: Traducimos el postback a contexto semántico
-          content = `[POSTBACK_INTERACTIVO] El invitado ha seleccionado: "\${title}" (ID de acción: \${payload})`;
-          console.log(`[WA_HANDLER] Postback interactivo interceptado: \${payload}`);
+          content = `[POSTBACK_INTERACTIVO] El invitado ha seleccionado: "${title}" (ID de acción: ${payload})`;
+          console.log(`[WA_HANDLER] Postback interactivo interceptado: ${payload}`);
         }
       } else if (message.type === "image") {
         content = "[MODO_MULTIMODAL] Se ha recibido una imagen para el moodboard.";
       } else if (message.type === "document" && message.document) {
-        console.log(`[WA_HANDLER] Documento detectado (ID: \${message.document.id}). Iniciando descarga...`);
+        console.log(`[WA_HANDLER] Documento detectado (ID: ${message.document.id}). Iniciando descarga...`);
         const buffer = await this.messagingProvider.downloadMedia(message.document.id);
         content = await this.docService.extractTextFromBuffer(buffer, message.document.mime_type);
         console.log(`[WA_HANDLER] Contenido del documento extraído para auditoría.`);
       }
 
-      console.log(`[WA_HANDLER] Procesando intención de \${from} (MsgID: \${messageId})`);
+      console.log(`[WA_HANDLER] Procesando intención de ${from} (MsgID: ${messageId})`);
 
       // 4. Invocar Cerebro Multi-Agente (LangGraph)
       const stream = this.orchestrator.streamPlanning({
         messages: [new HumanMessage(content)],
         tenantId: "WHATSAPP_USER",
-        correlationId: `WA_\${messageId}`
+        correlationId: `WA_${messageId}`
       });
 
       let lastMessage = "Lo siento, estoy procesando tu solicitud.";
@@ -84,9 +84,10 @@ export class WhatsAppWebhookHandler {
 
       // 5. Responder al usuario
       await this.messagingProvider.sendMessage(from, lastMessage);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("[WA_HANDLER_ERROR]", error);
-      const errorMessage = error.message?.includes("PDF") 
+      const message = error instanceof Error ? error.message : "";
+      const errorMessage = message.includes("PDF") 
         ? "No he podido leer este documento. Por favor, asegúrate de que sea un PDF sin contraseña."
         : "Hubo un error procesando tu solicitud legal o financiera.";
       
@@ -94,4 +95,3 @@ export class WhatsAppWebhookHandler {
     }
   }
 }
-

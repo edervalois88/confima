@@ -12,6 +12,7 @@ export const createPrismaExtended = (tenantId: string) => {
       $allModels: {
         async $allOperations({ model, operation, args, query }) {
           const scopedArgs = args as Record<string, unknown>;
+          console.debug(`[PRISMA_TENANT_SCOPE] ${String(model)}.${operation}`);
 
           // 1. Forzar filtro de tenantId en todas las consultas de lectura
           if (['findUnique', 'findFirst', 'findMany', 'count'].includes(operation)) {

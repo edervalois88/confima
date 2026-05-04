@@ -9,6 +9,9 @@ export class LLMCommunicationError extends DomainError {
   constructor(message: string, cause?: unknown) {
     super(`[LLM_COMMUNICATION_ERROR] ${message}`, 'LLM_ERROR');
     this.name = 'LLMCommunicationError';
+    if (cause !== undefined) {
+      this.cause = cause;
+    }
   }
 }
 

@@ -31,7 +31,7 @@ export class LegalComplianceAdapter implements ILegalComplianceService {
         2. CANCELACIONES: Verificar si hay cronogramas de reembolso claros.
         3. RESPONSABILIDAD: Detectar cláusulas que transfieran riesgos extremos al cliente.
         Solo devuelve riesgos reales y fundamentados.`,
-        prompt: `Analiza este contrato: \n\n \${contractText}`
+        prompt: `Analiza este contrato: \n\n ${contractText}`
       });
 
       return object.risks;

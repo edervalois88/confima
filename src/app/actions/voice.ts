@@ -21,8 +21,9 @@ export async function createVoiceSessionAction(tenantId: string) {
       accessToken: session.accessToken,
       callId: session.callId 
     };
-  } catch (error: any) {
-    console.error("[VOICE_ACTION_ERROR]", error.message);
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : "unknown";
+    console.error("[VOICE_ACTION_ERROR]", message);
     return { 
       success: false, 
       error: "No se pudo establecer el enlace de voz en tiempo real." 

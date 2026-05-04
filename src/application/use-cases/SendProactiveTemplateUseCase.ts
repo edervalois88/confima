@@ -18,10 +18,10 @@ export class SendProactiveTemplateUseCase {
     });
 
     if (!guest) {
-      throw new Error(`[PROACTIVE_ERROR] Guest with ID \${guestId} not found.`);
+      throw new Error(`[PROACTIVE_ERROR] Guest with ID ${guestId} not found.`);
     }
 
-    console.log(`[PROACTIVE] Enviando plantilla '\${templateName}' a \${guest.phoneFingerprint}`);
+    console.log(`[PROACTIVE] Enviando plantilla '${templateName}' a ${guest.phoneFingerprint}`);
 
     const complianceDecision = WhatsAppComplianceService.assessTemplateSend(guest);
 

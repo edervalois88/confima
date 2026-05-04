@@ -2,7 +2,6 @@
 
 import React, { useOptimistic, useTransition, useState } from 'react';
 import { updateGuestRSVPAction } from '@/presentation/actions/guestActions';
-import { cn } from '@/lib/utils';
 import { motion } from 'framer-motion';
 
 
